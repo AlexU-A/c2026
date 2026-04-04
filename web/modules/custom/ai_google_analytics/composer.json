@@ -1,0 +1,25 @@
+{
+  "name": "drupal/ai_google_analytics",
+  "description": "Connects Canvas AI agents to Google Analytics for page performance monitoring.",
+  "type": "drupal-module",
+  "license": "GPL-2.0-or-later",
+  "homepage": "https://www.drupal.org/project/ai_google_analytics",
+  "support": {
+    "issues": "https://drupal.org/project/issues/ai_google_analytics",
+    "source": "https://drupal.org/project/ai_google_analytics"
+  },
+  "require": {
+    "php": ">=8.2",
+    "drupal/core": "^10.3 || ^11",
+    "drupal/ai": "^1.0@alpha",
+    "drupal/ai_agents": "^1.0@alpha",
+    "drupal/canvas": "^1.0@dev",
+    "google/analytics-data": "^0.10 || ^1.0"
+  },
+  "extra": {
+    "drupal": {
+      "version": "1.0.x-dev",
+      "datestamp": ""
+    }
+  }
+}

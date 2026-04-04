@@ -276,7 +276,7 @@ class GoogleAnalyticsHooks {
    */
   #[Hook('entity_delete')]
   public function entityDelete(EntityInterface $entity): void {
-    if (!$entity instanceof Page) {
+    if ($entity->getEntityTypeId() !== 'canvas_page') {
       return;
     }
 

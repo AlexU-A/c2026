@@ -38,10 +38,43 @@ fi
 (cd web/modules/contrib/canvas && npm install)
 (cd web/modules/contrib/canvas/ui && npm run build)
 
+echo "Seeding demo analytics data..."
+ddev drush php:eval '
+  $page_ids = array_values(\Drupal::entityQuery("canvas_page")->accessCheck(FALSE)->range(0, 20)->execute());
+  if (empty($page_ids)) { echo "No canvas pages found, skipping.\n"; return; }
+  $flags = [
+    ["summary" => "Bounce rate is 78.3% (threshold: 70% max). Engaged sessions dropped to 42 over the last 90 days (threshold: 100 min).\n\nRecommendations: Add a stronger call-to-action above the fold. Consider breaking long-form content into scannable sections with subheadings.", "m" => ["42", "78.3", "3.1"]],
+    ["summary" => "Key event rate is 0.8% (threshold: 2% min). Users land on this page but rarely take action.\n\nRecommendations: Increase CTA contrast and size. Move the contact form higher on the page. Add social proof near the conversion point.", "m" => ["215", "52.1", "0.8"]],
+    ["summary" => "All three metrics are underperforming. Bounce rate: 85.2% (max 70%). Engaged sessions: 18 (min 100). Key event rate: 0.4% (min 2%).\n\nRecommendations: This page may have a content-intent mismatch. Review the page title and meta description for accuracy.", "m" => ["18", "85.2", "0.4"]],
+  ];
+  $context_data = [];
+  foreach ($flags as $i => $flag) {
+    if (!isset($page_ids[$i])) break;
+    $page = \Drupal\canvas\Entity\Page::load($page_ids[$i]);
+    if (!$page) continue;
+    $page->set("monitor", TRUE);
+    $page->set("engaged_sessions", $flag["m"][0]);
+    $page->set("bounce_rate", $flag["m"][1]);
+    $page->set("key_event_rate", $flag["m"][2]);
+    $page->save();
+    $context_data[$page->id()] = ["summary" => $flag["summary"]];
+  }
+  \Drupal::state()->set("ai_google_analytics.context_data", $context_data);
+  echo "Seeded analytics demo data for " . count($context_data) . " pages.\n";
+'
+
 echo "Preparing to index content..."
 sleep 3
-echo "Indexing all content in the vector database..."
-ddev drush sapi-i
+OPENAI_API_KEY_VALUE=$(grep '^OPENAI_API_KEY=' "${DDEV_APPROOT}/.ddev/.env" 2>/dev/null | cut -d= -f2- | tr -d '"')
+if [ -n "${OPENAI_API_KEY_VALUE}" ]; then
+  echo "Enabling AI search servers..."
+  ddev drush config:set search_api.server.canvas_page_search status true -y
+  ddev drush config:set search_api.server.media_image_search status true -y
+  echo "Indexing all content in the vector database..."
+  ddev drush sapi-i
+else
+  echo "Skipping content indexing because OPENAI_API_KEY is not set in .ddev/.env"
+fi
 
 echo "Demo setup complete. You can log in to the Drupal site using the following URL:"
 ddev drush uli

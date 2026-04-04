@@ -1,8 +1,10 @@
 name: AI Google Analytics
 type: module
-description: GA integration.
+description: Connects Canvas AI agents to Google Analytics so they can monitor page performance and suggest improvements.
 package: AI
 core_version_requirement: ^10.3 || ^11
+configure: ai_google_analytics.settings
 dependencies:
   - ai:ai
   - ai_agents:ai_agents
+  - canvas:canvas

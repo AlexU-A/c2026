@@ -6,11 +6,10 @@ namespace Drupal\Tests\ai_google_analytics\Unit;
 
 use Drupal\ai_google_analytics\BenchmarkEvaluator;
 use Drupal\ai_google_analytics\Hook\GoogleAnalyticsHooks;
-use Drupal\canvas\Entity\Page;
 use Drupal\Component\Plugin\PluginManagerInterface;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
-use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Logger\LoggerChannelInterface;
 use Drupal\Core\Mail\MailManagerInterface;
@@ -117,25 +116,28 @@ class GoogleAnalyticsHooksPresaveTest extends UnitTestCase {
    * @param string $label
    *   The entity label.
    *
-   * @return \Drupal\canvas\Entity\Page
+   * @return \Drupal\Core\Entity\ContentEntityInterface
    *   The mocked page entity.
    */
-  protected function createPageMock(array $values, array $original_values, string $id = '1', string $label = 'Test Page'): Page {
-    $page = $this->createMock(Page::class);
+  protected function createPageMock(array $values, array $original_values, string $id = '1', string $label = 'Test Page'): ContentEntityInterface {
+    $page = $this->createMock(ContentEntityInterface::class);
     $page->method('isNew')->willReturn(FALSE);
     $page->method('id')->willReturn($id);
     $page->method('label')->willReturn($label);
+    $page->method('getEntityTypeId')->willReturn('canvas_page');
     $page->method('get')
       ->willReturnCallback(function (string $field) use ($values) {
-        $item = $this->createMock(FieldItemListInterface::class);
+        // Use stdClass instead of FieldItemListInterface mock because PHPUnit
+        // 11 interface mocks do not support dynamic properties in PHP 8.3.
+        $item = new \stdClass();
         $item->value = $values[$field] ?? NULL;
         return $item;
       });
 
-    $original = $this->createMock(Page::class);
+    $original = $this->createMock(ContentEntityInterface::class);
     $original->method('get')
       ->willReturnCallback(function (string $field) use ($original_values) {
-        $item = $this->createMock(FieldItemListInterface::class);
+        $item = new \stdClass();
         $item->value = $original_values[$field] ?? NULL;
         return $item;
       });
@@ -210,12 +212,7 @@ class GoogleAnalyticsHooksPresaveTest extends UnitTestCase {
         'failures' => ['Bounce rate (85.0%) exceeds maximum threshold (70.0%)'],
       ]);
 
-    // Mock agent returning structured output.
-    $agent = $this->createMock(\stdClass::class, ['setChatInput', 'determineSolvability', 'solve']);
-    $agent->method('solve')
-      ->willReturn('{"summary": "High bounce rate detected", "recommendations": "Improve page load time"}');
-
-    // Use a callback for createInstance to handle method chaining.
+    // Mock agent returning structured output via anonymous class.
     $mockAgent = new class {
 
       public function setChatInput($input): void {}
@@ -305,7 +302,7 @@ class GoogleAnalyticsHooksPresaveTest extends UnitTestCase {
    * @covers ::canvasPagePresave
    */
   public function testNewEntitySkipped(): void {
-    $page = $this->createMock(Page::class);
+    $page = $this->createMock(ContentEntityInterface::class);
     $page->method('isNew')->willReturn(TRUE);
 
     $this->evaluator->expects($this->never())->method('evaluate');
@@ -319,8 +316,9 @@ class GoogleAnalyticsHooksPresaveTest extends UnitTestCase {
    * @covers ::entityDelete
    */
   public function testEntityDeleteClearsState(): void {
-    $page = $this->createMock(Page::class);
+    $page = $this->createMock(ContentEntityInterface::class);
     $page->method('id')->willReturn('5');
+    $page->method('getEntityTypeId')->willReturn('canvas_page');
 
     $this->state->method('get')
       ->with('ai_google_analytics.context_data', [])

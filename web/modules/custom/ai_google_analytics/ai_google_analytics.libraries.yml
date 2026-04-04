@@ -1,4 +1,4 @@
-canvas_ai_init:
+ai_panel_bridge:
   js:
     js/canvas-ai-init.js: { attributes: { defer: true } }
   dependencies:

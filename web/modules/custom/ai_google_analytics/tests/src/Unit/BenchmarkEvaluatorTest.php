@@ -8,7 +8,6 @@ use Drupal\ai_google_analytics\BenchmarkEvaluator;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -64,7 +63,9 @@ class BenchmarkEvaluatorTest extends UnitTestCase {
     $page = $this->createMock(ContentEntityInterface::class);
     $page->method('get')
       ->willReturnCallback(function (string $field_name) use ($values) {
-        $item_list = $this->createMock(FieldItemListInterface::class);
+        // Use stdClass instead of FieldItemListInterface mock because PHPUnit
+        // 11 interface mocks do not support dynamic properties in PHP 8.3.
+        $item_list = new \stdClass();
         $item_list->value = $values[$field_name] ?? NULL;
         return $item_list;
       });
