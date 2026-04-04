@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Google Analytics for Drupal Canvas — How It Works</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-alt: #232730;
+    --border: #2e3340;
+    --text: #e4e7ef;
+    --text-dim: #8b90a0;
+    --accent: #4f8ff7;
+    --accent-dim: #2a4a8a;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 16px;
+  }
+
+  .hero {
+    padding: 80px 20px 60px;
+    text-align: center;
+    background: linear-gradient(135deg, #0f1117 0%, #1a2744 50%, #0f1117 100%);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 span { color: var(--accent); }
+
+  .hero .subtitle {
+    color: var(--text-dim);
+    font-size: 1.15rem;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .badge-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .badge--green  { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.25); }
+  .badge--blue   { background: rgba(79,143,247,0.12); color: var(--accent); border: 1px solid rgba(79,143,247,0.25); }
+  .badge--amber  { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.25); }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  section {
+    padding: 64px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  section:last-of-type { border-bottom: none; }
+
+  h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  h2 .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-size: 0.85rem;
+    margin-right: 10px;
+    vertical-align: middle;
+  }
+
+  .section-subtitle {
+    color: var(--text-dim);
+    margin-bottom: 32px;
+    font-size: 1.05rem;
+  }
+
+  .screenshot-frame {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin: 24px 0;
+    background: var(--surface);
+  }
+
+  .screenshot-frame .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .screenshot-frame .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+
+  .screenshot-frame .url {
+    margin-left: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+  }
+
+  .screenshot-frame img {
+    width: 100%;
+    display: block;
+  }
+
+  .callout {
+    padding: 20px 24px;
+    border-radius: 10px;
+    margin: 24px 0;
+    font-size: 0.95rem;
+  }
+
+  .callout--blue {
+    background: rgba(79,143,247,0.08);
+    border: 1px solid rgba(79,143,247,0.2);
+  }
+
+  .callout--amber {
+    background: rgba(251,191,36,0.08);
+    border: 1px solid rgba(251,191,36,0.2);
+  }
+
+  .callout--green {
+    background: rgba(52,211,153,0.08);
+    border: 1px solid rgba(52,211,153,0.2);
+  }
+
+  .callout--red {
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.2);
+  }
+
+  .callout strong { color: var(--text); }
+
+  .callout p { margin-top: 8px; color: var(--text-dim); }
+  .callout p:first-child { margin-top: 0; }
+
+  .design-rationale {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+
+  @media (max-width: 700px) {
+    .design-rationale { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 1.8rem; }
+  }
+
+  .rationale-card {
+    padding: 20px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .rationale-card h4 {
+    font-size: 0.9rem;
+    color: var(--accent);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .rationale-card p {
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  .flow-diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 32px 0;
+    flex-wrap: wrap;
+  }
+
+  .flow-node {
+    padding: 14px 20px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    text-align: center;
+    min-width: 140px;
+  }
+
+  .flow-node .label {
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .flow-node .sublabel {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin-top: 4px;
+  }
+
+  .flow-arrow {
+    color: var(--text-dim);
+    font-size: 1.4rem;
+    padding: 0 8px;
+  }
+
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+    margin: 16px 0;
+  }
+
+  pre .comment { color: #6b7280; }
+  pre .string { color: var(--green); }
+  pre .keyword { color: var(--accent); }
+
+  .test-results {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 16px 0;
+  }
+
+  .test-results .pass { color: var(--green); }
+  .test-results .deprecation { color: var(--amber); }
+
+  footer {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin: 24px 0;
+  }
+
+  @media (max-width: 700px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  ol, ul { padding-left: 24px; color: var(--text-dim); }
+  li { margin-bottom: 8px; }
+  li strong { color: var(--text); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1><span>AI Google Analytics</span> for Drupal Canvas</h1>
+  <p class="subtitle">
+    A module that closes the loop between analytics data and content editing.
+    When page performance drops, an AI agent flags it — and hands the problem
+    directly to the Canvas page builder with context pre-loaded.
+  </p>
+  <div class="badge-row">
+    <span class="badge badge--blue">Drupal CMS 2.0</span>
+    <span class="badge badge--green">15 Unit Tests</span>
+    <span class="badge badge--amber">Canvas + AI Agents</span>
+  </div>
+</div>
+
+<!-- ====== SECTION: THE PROBLEM ====== -->
+<section>
+  <div class="container">
+    <h2>The Problem</h2>
+    <p class="section-subtitle">
+      Content teams check analytics in one tool, then switch to the CMS to make changes.
+      That context switch loses the <em>why</em> — the specific metrics that flagged the page,
+      the thresholds it missed, and what to do about it.
+    </p>
+
+    <div class="design-rationale">
+      <div class="rationale-card">
+        <h4>Before</h4>
+        <p>Check GA in one tab. Switch to Drupal in another. Try to remember which page failed, what the number was, what to do about it.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>After</h4>
+        <p>Module flags the page. Editor clicks "Work on it." Canvas opens with the problem and recommendations pre-loaded. One click from diagnosis to action.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== SECTION: ARCHITECTURE FLOW ====== -->
+<section>
+  <div class="container">
+    <h2>How It Works</h2>
+    <p class="section-subtitle">Four stages, fully automated until the last step.</p>
+
+    <div class="flow-diagram">
+      <div class="flow-node">
+        <div class="label">Cron</div>
+        <div class="sublabel">Fetch GA4 data</div>
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-node">
+        <div class="label">Presave Hook</div>
+        <div class="sublabel">Evaluate benchmarks</div>
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-node">
+        <div class="label">AI Agent</div>
+        <div class="sublabel">Summarize failures</div>
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-node">
+        <div class="label">Review Page</div>
+        <div class="sublabel">"Work on it" &rarr; Canvas</div>
+      </div>
+    </div>
+
+    <div class="callout callout--blue">
+      <strong>The key insight:</strong> the pass/fail decision is deterministic (no LLM). The AI agent is only called <em>after</em> a failure is confirmed, to generate a human-readable summary. If the agent fails, the module falls back to the evaluator's descriptions.
+    </div>
+  </div>
+</section>
+
+<!-- ====== SECTION: REVIEW PAGE ====== -->
+<section>
+  <div class="container">
+    <h2><span class="step-num">1</span>The Review Page</h2>
+    <p class="section-subtitle">
+      A new tab on the Content admin page shows all underperforming pages in one place.
+    </p>
+
+    <div class="screenshot-frame">
+      <div class="toolbar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="url">/admin/content/ga-page-review</span>
+      </div>
+      <img src="screenshots/01-ga-review-page.png" alt="AI Analytics Review page showing 3 flagged pages with performance summaries and Work on it buttons">
+    </div>
+
+    <div class="design-rationale">
+      <div class="rationale-card">
+        <h4>Why a tab on Content, not a standalone page?</h4>
+        <p>Editors already live in Content &gt; Pages. Adding a sibling tab ("AI Analytics Review") keeps the workflow in context rather than hiding it under Configuration or Reports where it would be forgotten.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>Why show the full summary inline?</h4>
+        <p>Editors need to triage. Seeing "bounce rate is 78.3% (threshold: 70%)" directly in the table lets them decide which page to fix first without clicking into each one.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== SECTION: CANVAS HANDOFF ====== -->
+<section>
+  <div class="container">
+    <h2><span class="step-num">2</span>The Canvas Editor Handoff</h2>
+    <p class="section-subtitle">
+      "Work on it" opens the page in Canvas with the analytics context pre-loaded.
+    </p>
+
+    <div class="screenshot-frame">
+      <div class="toolbar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="url">/canvas/editor/canvas_page/1?ai_message=This+page+is+underperforming...</span>
+      </div>
+      <img src="screenshots/02-canvas-editor-with-ai-message.png" alt="Canvas editor showing the Resources page with AI panel, page preview, and analytics fields in the Page Data sidebar">
+    </div>
+
+    <div class="callout callout--blue">
+      <strong>Three panels, one workflow.</strong>
+      <p><strong>Left:</strong> The AI panel (Drupal Canvas AI) — ready to accept the analytics summary as a prompt and suggest layout changes.<br>
+      <strong>Center:</strong> Live page preview of "Resources &amp; support."<br>
+      <strong>Right:</strong> Page Data sidebar showing the monitoring toggle (on), engaged sessions (42), bounce rate (78.3), and per-page benchmark override fields.</p>
+    </div>
+
+    <div class="design-rationale">
+      <div class="rationale-card">
+        <h4>Why pass the summary via query parameter?</h4>
+        <p>The <code>ai_message</code> query parameter is a Canvas convention — it pre-fills the AI chat panel. This means no custom Canvas patches or UI modifications were needed. The module works with stock Canvas.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>Why store metrics as base fields?</h4>
+        <p>Base fields on the Canvas page entity mean the data is visible in the Page Data sidebar without any form_alter hacks. Editors can see current metrics and override benchmarks per-page, right where they edit the page.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== SECTION: FRONTEND PAGE ====== -->
+<section>
+  <div class="container">
+    <h2><span class="step-num">3</span>The Monitored Page</h2>
+    <p class="section-subtitle">
+      This is what the Resources page looks like to visitors. The analytics monitoring is invisible to end users.
+    </p>
+
+    <div class="screenshot-frame">
+      <div class="toolbar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="url">c2026.ddev.site/resources</span>
+      </div>
+      <img src="screenshots/04-frontend-resources-page.png" alt="FinDrop Resources page showing the hero section and resource cards">
+    </div>
+
+    <div class="callout callout--blue">
+      <strong>No frontend impact.</strong>
+      <p>The monitoring fields are marked <code>setInternal(TRUE)</code> — they don't appear in REST, JSON:API, or any frontend rendering. The module adds zero overhead to page loads.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====== SECTION: SETTINGS ====== -->
+<section>
+  <div class="container">
+    <h2><span class="step-num">4</span>Configuration</h2>
+    <p class="section-subtitle">
+      Global benchmark thresholds and GA4 credentials.
+    </p>
+
+    <div class="screenshot-frame">
+      <div class="toolbar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="url">/admin/config/services/ai-google-analytics</span>
+      </div>
+      <img src="screenshots/03-ga-settings-form.png" alt="Google Analytics Settings form with GA4 Property ID, benchmark thresholds, and credentials upload">
+    </div>
+
+    <div class="design-rationale">
+      <div class="rationale-card">
+        <h4>Why global defaults + per-page overrides?</h4>
+        <p>A landing page with 10,000 monthly sessions shouldn't have the same "minimum engaged sessions" threshold as a niche FAQ page. Global defaults handle the common case; per-page overrides (in the Canvas editor sidebar) handle exceptions.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>Why store credentials in private://&thinsp;?</h4>
+        <p>Service account JSON files contain private keys. Drupal's private file system is not web-accessible, and the file upload field stores the file there automatically. No secrets in config, no secrets in git.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== SECTION: BENCHMARKS ====== -->
+<section>
+  <div class="container">
+    <h2><span class="step-num">5</span>The Benchmark Evaluator</h2>
+    <p class="section-subtitle">
+      Deterministic comparison — no LLM needed for the pass/fail decision.
+    </p>
+
+    <div class="callout callout--green">
+      <strong>Design choice: deterministic first, AI second.</strong>
+      <p>The <code>BenchmarkEvaluator</code> is a pure PHP service with no AI dependency. It compares numbers against thresholds and returns structured results. The AI agent is only invoked <em>after</em> a failure is confirmed — to generate a human-readable summary. If the agent fails, the module falls back to the evaluator's failure descriptions. This means the flagging system never depends on API availability.</p>
+    </div>
+
+    <pre><span class="comment">// BenchmarkEvaluator::evaluate() returns:</span>
+[
+  <span class="string">'passed'</span> => <span class="keyword">false</span>,
+  <span class="string">'failures'</span> => [
+    <span class="string">'Engaged sessions (42.0) is below minimum threshold (100.0)'</span>,
+    <span class="string">'Bounce rate (78.3%) exceeds maximum threshold (70.0%)'</span>,
+  ],
+]</pre>
+
+    <div class="design-rationale">
+      <div class="rationale-card">
+        <h4>Three metrics, three checks</h4>
+        <p><strong>Engaged sessions</strong> (actual &ge; threshold), <strong>Bounce rate</strong> (actual &le; threshold), <strong>Key event rate</strong> (actual &ge; threshold). Each check is independent — a page can fail one metric and pass the others.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>Threshold resolution order</h4>
+        <p>Per-page override field &rarr; global config value &rarr; <code>NULL</code> (skip check). If no threshold is configured at either level, that metric is not evaluated — no false positives from missing config.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== SECTION: TESTS ====== -->
+<section>
+  <div class="container">
+    <h2><span class="step-num">6</span>Test Coverage</h2>
+    <p class="section-subtitle">15 unit tests covering both the evaluator and the presave hook logic.</p>
+
+    <div class="test-results">
+      <span class="pass">PHPUnit 11.5.55</span> &mdash; PHP 8.3.25<br><br>
+      <strong>BenchmarkEvaluatorTest</strong> (9 tests)<br>
+      <span class="pass">&#10004;</span> testAllBenchmarksPass<br>
+      <span class="pass">&#10004;</span> testAllBenchmarksFail<br>
+      <span class="pass">&#10004;</span> testSingleBenchmarkFails<br>
+      <span class="pass">&#10004;</span> testPerPageOverrideTakesPrecedence<br>
+      <span class="pass">&#10004;</span> testStricterPerPageOverrideCausesFailure<br>
+      <span class="pass">&#10004;</span> testEmptyMetricsPass<br>
+      <span class="pass">&#10004;</span> testEmptyStringMetricsTreatedAsNull<br>
+      <span class="pass">&#10004;</span> testBoundaryValuesPass<br>
+      <span class="pass">&#10004;</span> testJustPastBoundaryFails<br><br>
+      <strong>GoogleAnalyticsHooksPresaveTest</strong> (6 tests)<br>
+      <span class="pass">&#10004;</span> testUnchangedMetricsSkipsEvaluation <span class="deprecation">(D)</span><br>
+      <span class="pass">&#10004;</span> testPassingBenchmarksClearStaleState <span class="deprecation">(D)</span><br>
+      <span class="pass">&#10004;</span> testFailingBenchmarksCallAgentAndUpdateState <span class="deprecation">(D)</span><br>
+      <span class="pass">&#10004;</span> testAgentFailureFallsBackToFailureText <span class="deprecation">(D)</span><br>
+      <span class="pass">&#10004;</span> testNewEntitySkipped<br>
+      <span class="pass">&#10004;</span> testEntityDeleteClearsState<br><br>
+      <strong>Result: <span class="pass">15 tests, 66 assertions — all passing</span></strong><br>
+      <span class="deprecation">(D) = PHP 8.3 dynamic property deprecation on mock objects — cosmetic, not a failure</span>
+    </div>
+  </div>
+</section>
+
+<!-- ====== SECTION: DISCLAIMER ====== -->
+<section>
+  <div class="container">
+    <h2>Testing Notes</h2>
+
+    <div class="callout callout--amber">
+      <strong>Limitation: This walkthrough uses seeded demo data, not live GA4 data.</strong>
+      <p>The screenshots and review page above are populated with <strong>synthetic analytics data</strong> injected by the <code>ddev demo-setup</code> command. The demo seeds 3 Canvas pages with realistic but fabricated metrics (engaged sessions, bounce rate, key event rate) and pre-written performance summaries. No Google Analytics API calls were made during this walkthrough.</p>
+      <p>This means the AI agent's summarization step was bypassed — the summaries shown are static strings, not LLM-generated. In production, the presave hook would call the Analytics Monitoring Agent to generate these summaries dynamically.</p>
+    </div>
+
+    <h3 style="margin: 32px 0 16px; font-size: 1.15rem;">Testing with Real GA4 Data</h3>
+    <p style="color: var(--text-dim); margin-bottom: 20px;">
+      If you have a GA4 property, you can test the full pipeline:
+    </p>
+
+    <ol>
+      <li><strong>Configure credentials.</strong> Create a GCP service account with Viewer access on your GA4 property. Upload the JSON at <code>/admin/config/services/ai-google-analytics</code> along with your numeric GA4 property ID.</li>
+      <li><strong>Set thresholds and enable monitoring.</strong> Set benchmark values (e.g., min sessions = 50, max bounce = 65%, min key event rate = 1.5%). Edit Canvas pages and toggle "Monitor analytics" on.</li>
+      <li><strong>Run cron.</strong> <code>drush cron</code> fetches 90 days of GA4 data. Pages that fail benchmarks appear on the review page with AI-generated summaries. Click "Work on it" to jump straight into Canvas.</li>
+    </ol>
+
+    <div class="callout callout--green">
+      <strong>No GA4 access?</strong> The seeded demo data exercises the full review page, Canvas handoff, and benchmark UI. You only miss the live cron fetch and AI summarization.
+    </div>
+  </div>
+</section>
+
+<!-- ====== SECTION: ARCHITECTURE DECISIONS ====== -->
+<section>
+  <div class="container">
+    <h2>Key Design Decisions</h2>
+
+    <div class="design-rationale">
+      <div class="rationale-card">
+        <h4>Deterministic evaluation, not LLM-based</h4>
+        <p>The pass/fail decision is a simple numeric comparison. This makes it testable, predictable, and independent of API availability. The AI agent only generates the human-readable summary — and even that has a deterministic fallback.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>Base fields, not config entities</h4>
+        <p>Metrics are stored as base fields on the Canvas page entity. This keeps them co-located with the content they describe and avoids a separate "analytics data" entity type with its own CRUD overhead.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>State API for flagged data, not database tables</h4>
+        <p>The flagged page summaries live in Drupal's State API (<code>ai_google_analytics.context_data</code>). This is transient data that doesn't need revision history, content moderation, or entity access control — State is the right tool.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>Canvas query parameter for AI context</h4>
+        <p>Rather than patching Canvas or storing the AI message in a field, the module passes the summary via <code>?ai_message=</code> query parameter. This is a clean integration point that works with stock Canvas and doesn't create coupling.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>Per-page benchmark overrides</h4>
+        <p>Not all pages are equal. A homepage might need 1,000 engaged sessions while a legal page needs 10. Per-page override fields in the Canvas editor sidebar let editors set page-specific thresholds without touching global config.</p>
+      </div>
+      <div class="rationale-card">
+        <h4>Email notification on failure</h4>
+        <p>When benchmarks fail, the module sends an email pointing to the review page. This ensures the flagged content gets attention even if no one is actively checking the admin UI.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>
+    <strong>AI Google Analytics</strong> for Drupal Canvas &mdash;
+    built by <a href="https://www.zivtech.com" target="_blank" rel="noopener">Zivtech</a>
+  </p>
+  <p style="margin-top: 8px;">
+    Module: <a href="https://www.drupal.org/project/ai_google_analytics" target="_blank" rel="noopener">drupal.org/project/ai_google_analytics</a>
+    &nbsp;&middot;&nbsp; April 2026
+  </p>
+</footer>
+
+</body>
+</html>

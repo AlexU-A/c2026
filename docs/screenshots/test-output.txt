@@ -1,0 +1,32 @@
+HTML output directory sites/simpletest/browser_output is not a writable directory.
+
+PHPUnit 11.5.55 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.25
+Configuration: /var/www/html/web/core/phpunit.xml.dist
+
+.........DDDD..                                                   15 / 15 (100%)
+
+Time: 00:00.304, Memory: 10.00 MB
+
+4 tests triggered 1 PHP deprecation:
+
+1) /var/www/html/web/modules/custom/ai_google_analytics/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php:145
+Creation of dynamic property MockObject_ContentEntityInterface_b66183e8::$original is deprecated
+
+Triggered by:
+
+* Drupal\Tests\ai_google_analytics\Unit\GoogleAnalyticsHooksPresaveTest::testAgentFailureFallsBackToFailureText
+  /var/www/html/web/modules/custom/ai_google_analytics/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php:257
+
+* Drupal\Tests\ai_google_analytics\Unit\GoogleAnalyticsHooksPresaveTest::testFailingBenchmarksCallAgentAndUpdateState
+  /var/www/html/web/modules/custom/ai_google_analytics/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php:202
+
+* Drupal\Tests\ai_google_analytics\Unit\GoogleAnalyticsHooksPresaveTest::testPassingBenchmarksClearStaleState
+  /var/www/html/web/modules/custom/ai_google_analytics/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php:174
+
+* Drupal\Tests\ai_google_analytics\Unit\GoogleAnalyticsHooksPresaveTest::testUnchangedMetricsSkipsEvaluation
+  /var/www/html/web/modules/custom/ai_google_analytics/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php:155
+
+OK, but there were issues!
+Tests: 15, Assertions: 66, Deprecations: 1, PHPUnit Deprecations: 17.
