@@ -7,6 +7,7 @@ namespace Drupal\ai_google_analytics\Hook;
 use Drupal\ai\OperationType\Chat\ChatInput;
 use Drupal\ai\OperationType\Chat\ChatMessage;
 use Drupal\ai_google_analytics\BenchmarkEvaluator;
+use Drupal\ai_google_analytics\GoogleAnalyticsCronService;
 use Drupal\canvas\Entity\Page;
 use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -32,6 +33,8 @@ class GoogleAnalyticsHooks {
   /**
    * Constructs a GoogleAnalyticsHooks instance.
    *
+   * @param \Drupal\ai_google_analytics\GoogleAnalyticsCronService $cronService
+   *   The GA cron service.
    * @param \Drupal\ai_google_analytics\BenchmarkEvaluator $benchmarkEvaluator
    *   The benchmark evaluator service.
    * @param \Drupal\Component\Plugin\PluginManagerInterface $aiAgentManager
@@ -50,6 +53,7 @@ class GoogleAnalyticsHooks {
    *   The request stack.
    */
   public function __construct(
+    protected readonly GoogleAnalyticsCronService $cronService,
     protected readonly BenchmarkEvaluator $benchmarkEvaluator,
     protected readonly PluginManagerInterface $aiAgentManager,
     protected readonly MailManagerInterface $mailManager,
@@ -59,6 +63,27 @@ class GoogleAnalyticsHooks {
     protected readonly StateInterface $state,
     protected readonly RequestStack $requestStack,
   ) {}
+
+  /**
+   * Implements hook_cron().
+   *
+   * Delegates GA4 metric fetching to the GoogleAnalyticsCronService.
+   */
+  #[Hook('cron')]
+  public function cron(): void {
+    $this->cronService->fetchMetrics();
+  }
+
+  /**
+   * Implements hook_mail().
+   */
+  #[Hook('mail')]
+  public function mail($key, &$message, $params): void {
+    if ($key === 'content_performance_report') {
+      $message['subject'] = $params['subject'];
+      $message['body'][] = $params['message'];
+    }
+  }
 
   /**
    * Implements hook_entity_base_field_info().

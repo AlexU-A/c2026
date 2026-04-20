@@ -2,11 +2,18 @@
 
 /**
  * @file
- * Install and update hooks for the AI Google Analytics module.
+ * Install, update, and uninstall hooks for the AI Google Analytics module.
  */
 
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+
+/**
+ * Implements hook_uninstall().
+ */
+function ai_google_analytics_uninstall(): void {
+  \Drupal::state()->delete('ai_google_analytics.context_data');
+}
 
 /**
  * Add per-page benchmark override fields to Canvas page entities.

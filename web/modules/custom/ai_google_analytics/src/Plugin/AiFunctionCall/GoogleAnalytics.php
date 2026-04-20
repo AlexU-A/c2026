@@ -64,6 +64,7 @@ class GoogleAnalytics extends FunctionCallBase implements ExecutableFunctionCall
       $plugin_id,
       $plugin_definition,
       $container->get('ai.context_definition_normalizer'),
+      $container->get('plugin.manager.ai_data_type_converter'),
     );
     $instance->configFactory = $container->get('config.factory');
     $instance->fileSystem = $container->get('file_system');
@@ -155,7 +156,8 @@ class GoogleAnalytics extends FunctionCallBase implements ExecutableFunctionCall
       $this->setOutput((string) json_encode($output, JSON_UNESCAPED_SLASHES));
     }
     catch (\Throwable $e) {
-      $this->setOutput('Failed to fetch Google Analytics data: ' . $e->getMessage());
+      \Drupal::logger('ai_google_analytics')->error('GA API error: @message', ['@message' => $e->getMessage()]);
+      $this->setOutput('Failed to fetch Google Analytics data. Check the site logs for details.');
     }
   }
 

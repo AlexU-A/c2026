@@ -2,24 +2,5 @@
 
 /**
  * @file
- * Cron and mail hooks for the AI Google Analytics module.
+ * Primary module file for AI Google Analytics.
  */
-
-/**
- * Implements hook_cron().
- *
- * Delegates GA4 metric fetching to the GoogleAnalyticsCronService.
- */
-function ai_google_analytics_cron(): void {
-  \Drupal::service('Drupal\ai_google_analytics\GoogleAnalyticsCronService')->fetchMetrics();
-}
-
-/**
- * Implements hook_mail().
- */
-function ai_google_analytics_mail(string $key, array &$message, array $params): void {
-  if ($key === 'content_performance_report') {
-    $message['subject'] = $params['subject'];
-    $message['body'][] = $params['message'];
-  }
-}

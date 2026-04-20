@@ -15,6 +15,7 @@ services:
 
   Drupal\ai_google_analytics\Hook\GoogleAnalyticsHooks:
     arguments:
+      $cronService: '@Drupal\ai_google_analytics\GoogleAnalyticsCronService'
       $benchmarkEvaluator: '@Drupal\ai_google_analytics\BenchmarkEvaluator'
       $aiAgentManager: '@plugin.manager.ai_agents'
       $mailManager: '@plugin.manager.mail'

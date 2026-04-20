@@ -92,6 +92,9 @@ $RECYCLE.BIN/
 /drupal
 /creating_patch_for_canvas/clone_here
 
+# Internal plans and strategy docs
+/docs/plans/
+
 # Local backups
 /.backups/
 

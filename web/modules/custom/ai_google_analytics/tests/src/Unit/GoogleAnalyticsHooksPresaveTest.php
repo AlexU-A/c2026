@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\ai_google_analytics\Unit;
 
 use Drupal\ai_google_analytics\BenchmarkEvaluator;
+use Drupal\ai_google_analytics\GoogleAnalyticsCronService;
 use Drupal\ai_google_analytics\Hook\GoogleAnalyticsHooks;
 use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
@@ -92,7 +93,10 @@ class GoogleAnalyticsHooksPresaveTest extends UnitTestCase {
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
+    $cronService = $this->createMock(GoogleAnalyticsCronService::class);
+
     $this->hooks = new GoogleAnalyticsHooks(
+      $cronService,
       $this->evaluator,
       $this->agentManager,
       $this->mailManager,
