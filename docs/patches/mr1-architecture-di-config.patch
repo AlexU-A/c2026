@@ -1,0 +1,1112 @@
+diff --git a/REVIEW_CHANGELOG.txt b/REVIEW_CHANGELOG.txt
+deleted file mode 100644
+index db38593..0000000
+--- a/REVIEW_CHANGELOG.txt
++++ /dev/null
+@@ -1,287 +0,0 @@
+-AI Google Analytics — Review Fixes Changelog
+-=============================================
+-
+-All changes listed below were made to bring the module up to Drupal coding
+-standards, fix correctness bugs, close a security issue, and prepare the
+-module for drupal.org publishing.
+-
+-
+-SECURITY
+---------
+-
+-1. Credentials file stored in public:// (CRITICAL)
+-   File: src/Form/GoogleAnalyticsSettingsForm.php
+-   Line: #upload_location value
+-   Before: 'public://'
+-   After:  'private://'
+-   Why: The Google service account credentials JSON was uploaded to the
+-   publicly accessible files directory. Any visitor could download it.
+-   Now stored in the private file system.
+-
+-
+-CORRECTNESS BUGS
+-----------------
+-
+-2. Cron loop — only last page saved
+-   File: ai_google_analytics.module, function ai_google_analytics_cron()
+-   Before: $page->set() and $page->save() were OUTSIDE the foreach loop.
+-   Only the last page's data was ever persisted. Also used 'return' on
+-   empty rows, which exited the entire function instead of skipping to
+-   the next page.
+-   After: $page->set() and $page->save() moved inside the loop. 'return'
+-   changed to 'continue'. Each page now gets its own GA data saved.
+-
+-3. Hardcoded start date
+-   File: ai_google_analytics.module
+-   Before: 'start_date' => '2026-01-01' (hardcoded)
+-   After:  'start_date' => (new \DateTimeImmutable('-90 days'))->format('Y-m-d')
+-   Why: Matches the 90-day rolling window already used by the
+-   GoogleAnalytics FunctionCall plugin. The hardcoded date would become
+-   increasingly stale over time.
+-
+-4. Missing credentials guard in cron
+-   File: ai_google_analytics.module
+-   Added: Early return with a warning log if no credentials_uri is
+-   configured, preventing a fatal error on unconfigured sites.
+-
+-
+-DRUPAL CODING STANDARDS
+------------------------
+-
+-5. Unprefixed helper function
+-   File: ai_google_analytics.module
+-   Before: function get_monitored_pages()
+-   After:  function ai_google_analytics_get_monitored_pages()
+-   Why: Drupal requires all functions in .module files to be prefixed
+-   with the module name to avoid global namespace collisions.
+-
+-6. Static \Drupal:: calls replaced with dependency injection
+-   Files: src/Controller/GoogleAnalyticsReviewController.php
+-          src/Hook/GoogleAnalyticsHooks.php
+-   GoogleAnalyticsReviewController: Added constructor injection for
+-   StateInterface via ControllerBase::create().
+-   GoogleAnalyticsHooks: Added constructor injection for 7 services
+-   (plugin.manager.ai_agents, plugin.manager.mail, config.factory,
+-   current_user, logger.factory, state, request_stack). All static
+-   \Drupal:: calls in OOP classes replaced with injected services.
+-
+-7. Added declare(strict_types=1)
+-   Files: GoogleAnalyticsReviewController.php
+-          GoogleAnalyticsSettingsForm.php
+-          GoogleAnalytics.php (AiFunctionCall plugin)
+-   (CanvasHooks.php and GoogleAnalyticsHooks.php already had it.)
+-
+-8. Brace style fixed
+-   Files: GoogleAnalyticsReviewController.php
+-          GoogleAnalyticsHooks.php
+-   Before: Opening brace on next line for class declarations.
+-   After:  Opening brace on same line per Drupal coding standards.
+-
+-9. Docblocks added
+-   All files: Added @file docblock to .module file. Added class-level
+-   docblocks to all classes. Added method-level docblocks where missing.
+-   Added @param/@return annotations to public methods.
+-
+-10. Services registered in services.yml (NEW FILE)
+-    File: ai_google_analytics.services.yml
+-    Why: Hook classes using #[Hook] attributes are auto-discovered in
+-    Drupal 11, but explicit service registration is better practice for
+-    contrib modules. It documents the dependency graph and ensures
+-    correct DI for GoogleAnalyticsHooks (7 constructor arguments).
+-
+-11. Redundant state delete removed
+-    File: src/Hook/GoogleAnalyticsHooks.php
+-    Before: \Drupal::state()->delete() immediately before ->set() on the
+-    same key. The delete was unnecessary since set() overwrites.
+-    After: Removed the delete call; only set() remains.
+-
+-
+-CONFIG & METADATA
+------------------
+-
+-12. Config schema added (NEW FILE)
+-    File: config/schema/ai_google_analytics.schema.yml
+-    Defines the schema for ai_google_analytics.settings (property_id,
+-    credentials_fid, credentials_uri). Without this, drush config:inspect
+-    would report a missing schema.
+-
+-13. Default config added (NEW FILE)
+-    File: config/install/ai_google_analytics.settings.yml
+-    Provides empty defaults so the config object exists after install.
+-
+-14. Agent config dependencies added
+-    File: config/install/ai_agents.ai_agent.analytics_monitoring_agent.yml
+-    Before: dependencies: {}
+-    After:  dependencies.module: [ai_context]
+-    Why: The agent references the ai_context:get_relevant_context_items
+-    tool. Declaring the dependency prevents Drupal from allowing
+-    ai_context to be uninstalled while this config exists.
+-
+-15. Library renamed for clarity
+-    File: ai_google_analytics.libraries.yml
+-    Before: canvas_ai_init
+-    After:  ai_panel_bridge
+-    Why: The script bridges the analytics review page to the Canvas AI
+-    panel — the old name was generic. The reference in
+-    CanvasHooks::libraryInfoAlter() updated to match.
+-
+-16. Module info.yml improved
+-    File: ai_google_analytics.info.yml
+-    - Description expanded from "GA integration." to a meaningful sentence.
+-    - Added configure: ai_google_analytics.settings (so the settings link
+-      appears on the module list page).
+-    - Added canvas:canvas as a dependency (the module uses Canvas entities
+-      and hooks — this was missing).
+-
+-17. Type hints added to hook_mail
+-    File: ai_google_analytics.module
+-    Before: function ai_google_analytics_mail($key, &$message, $params)
+-    After:  function ai_google_analytics_mail(string $key, array &$message, array $params): void
+-    Also simplified the switch to a single if statement (only one case).
+-
+-
+-NEW FILES FOR D.O. PUBLISHING
+------------------------------
+-
+-18. composer.json
+-    Standard drupal-module composer.json with dependencies on drupal/ai,
+-    drupal/ai_agents, drupal/canvas, and google/analytics-data.
+-
+-19. README.md
+-    Documents how the module works (cron flow, presave agent trigger,
+-    review page, function call plugin), requirements, installation,
+-    configuration steps, and component descriptions.
+-
+-
+-ARCHITECTURE REFACTOR (LLM review findings, 2026-04-03)
+--------------------------------------------------------
+-
+-An LLM-simulated review identified 4 converged blockers: non-deterministic
+-AI decision path, stale review state, cron runtime hardening gap, and no
+-automated test coverage. The following changes address those findings.
+-
+-20. Deterministic benchmark evaluation replaces LLM pass/fail decision
+-    Files: config/schema/ai_google_analytics.schema.yml
+-           config/install/ai_google_analytics.settings.yml
+-           src/Form/GoogleAnalyticsSettingsForm.php
+-           src/Hook/GoogleAnalyticsHooks.php
+-    Before: The presave hook called the AI agent to evaluate whether GA
+-    metrics met benchmarks, then regex-parsed JSON from free-form LLM
+-    output to decide whether to flag a page. The pass/fail decision was
+-    non-deterministic and untestable.
+-    After: Global benchmark thresholds (engaged_sessions_min,
+-    bounce_rate_max, key_event_rate_min) stored in config with a settings
+-    form. Three nullable float base fields added to Canvas pages for
+-    per-page overrides (NULL = use global default). A deterministic PHP
+-    comparison decides pass/fail. The AI agent is now only called when a
+-    page is already flagged, to generate a human-readable summary and
+-    recommendations — it no longer makes the pass/fail decision.
+-    Why: The core behavioral decision should not depend on parsing
+-    unstructured LLM output. Deterministic thresholds are testable,
+-    predictable, and configurable by site admins.
+-
+-21. BenchmarkEvaluator service (NEW FILE)
+-    File: src/BenchmarkEvaluator.php
+-    A dedicated service that performs deterministic comparison of GA metrics
+-    against thresholds. Per-page override fields (float, nullable) take
+-    precedence over global config defaults. Returns ['passed' => bool,
+-    'failures' => string[]] — no AI involvement. Registered in
+-    services.yml and injected into GoogleAnalyticsHooks.
+-    Why: Extracted to a service (not a private method) for testability and
+-    reuse. The evaluator can be called from cron, presave, or any other
+-    context without coupling to the hooks class.
+-
+-22. Presave hook rewritten to use deterministic evaluation
+-    File: src/Hook/GoogleAnalyticsHooks.php
+-    Before: Called AI agent to decide pass/fail, regex-parsed JSON from
+-    free-form output, branched on $json['notify'].
+-    After: Calls BenchmarkEvaluator::evaluate() for deterministic pass/fail.
+-    On pass: clears any existing flagged state (fixes stale state bug).
+-    On fail: calls AI agent only for human-readable summary text, with
+-    try/catch — agent failure falls back to deterministic failure
+-    descriptions. Never crashes editor sessions on LLM outage.
+-
+-23. Entity delete state cleanup
+-    File: src/Hook/GoogleAnalyticsHooks.php
+-    Added hook_entity_delete() to clean up ai_google_analytics.context_data
+-    state when a Canvas page is deleted. Prevents orphaned entries in the
+-    review UI.
+-
+-24. BenchmarkEvaluator unit tests (NEW FILE)
+-    File: tests/src/Unit/BenchmarkEvaluatorTest.php
+-    8 test cases: all pass, all fail, single fail, per-page override
+-    (lenient), per-page override (stricter), empty metrics, empty string
+-    metrics, boundary values (at threshold and just past).
+-
+-25. Agent config rewritten for summary-only role
+-    Files: config/install/ai_agents.ai_agent.analytics_monitoring_agent.yml
+-           custom_recipes/findrop/config/ai_agents.ai_agent.analytics_monitoring_agent.yml
+-    Before: System prompt instructed the agent to evaluate metrics AND
+-    format a JSON response with notify/summary. structured_output_enabled
+-    was false. Schema was a complex multi-page format with flag/url/summary
+-    /recommendations per page — never consumed by any code.
+-    After: System prompt scoped to summary-only role ("do NOT re-evaluate
+-    whether the page passes or fails"). structured_output_enabled set to
+-    true. Schema simplified to {summary: string, recommendations: string}.
+-    Recipe copy also updated to match, including adding the missing
+-    ai_context module dependency.
+-    Why: The pass/fail decision is now handled by deterministic PHP code.
+-    The agent's only job is generating human-readable text for editors.
+-    Structured output ensures reliable JSON parsing without regex.
+-
+-26. Cron logic extracted to GoogleAnalyticsCronService (NEW FILE)
+-    File: src/GoogleAnalyticsCronService.php
+-    Before: All GA API logic lived in ai_google_analytics_cron() in the
+-    .module file using static \Drupal:: calls. No try/catch — a single
+-    credentials error or API failure aborted the entire cron run for all
+-    monitored pages.
+-    After: New service with proper DI (config, entity_type.manager,
+-    file_system, logger, path_alias.manager). Client instantiation wrapped
+-    in try/catch with early return. Per-page API calls wrapped in
+-    try/catch — failures logged with page ID/label context, other pages
+-    continue. Credentials file existence verified before attempting client
+-    creation. hook_cron() is now a one-liner delegating to the service.
+-
+-27. AiFunctionCall plugin hardened
+-    File: src/Plugin/AiFunctionCall/GoogleAnalytics.php
+-    Before: No credential validation, no property_id check, no try/catch.
+-    Missing credentials or API failure would throw unhandled exceptions
+-    during AI agent tool execution.
+-    After: Early returns with descriptive messages for missing credentials,
+-    missing credentials file, and missing property ID. Entire GA API call
+-    wrapped in try/catch — errors returned as tool output text rather than
+-    crashing the agent session.
+-
+-28. Presave hook unit tests (NEW FILE)
+-    File: tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php
+-    6 test cases: unchanged metrics skip evaluation, passing benchmarks
+-    clear stale state, failing benchmarks call agent and update state,
+-    agent failure falls back to deterministic failure text, new entities
+-    skipped, entity delete clears state.
+-    Why: The presave hook is the most complex code path — it orchestrates
+-    evaluation, agent calls, state management, and email notification.
+-    These tests verify all branches including the error fallback that
+-    prevents editor sessions from crashing on LLM outage.
+-
+-29. Entity schema update hook for new fields
+-    File: ai_google_analytics.install (NEW)
+-    Added hook_update_N (10001) that installs the three per-page benchmark
+-    float fields on existing canvas_page entities via
+-    entityDefinitionUpdateManager. Without this, existing installs would
+-    have no DB storage for the new fields.
+-
+-
+-NOT CHANGED (reviewed, no action needed)
+-----------------------------------------
+-
+-- GA4 metric expressions (bounceRate*100, sessionKeyEventRate*100):
+-  These are valid GA4 Data API derived metric expressions. The 'expression'
+-  field on Metric objects creates a calculated metric — this is intentional
+-  and correct.
+-
+-- js/canvas-ai-init.js: No changes needed. The script correctly observes
+-  the DOM for AiPanel mount and pre-populates the chat input.
+-
+-- GoogleAnalytics.php plugin logic: Already used DI via ::create(), had
+-  correct GA4 API usage with InListFilter. Only added strict_types and
+-  class docblock.
+diff --git a/ai_google_analytics.info.yml b/ai_google_analytics.info.yml
+index 3e8c4a5..df87e93 100644
+--- a/ai_google_analytics.info.yml
++++ b/ai_google_analytics.info.yml
+@@ -7,4 +7,5 @@ configure: ai_google_analytics.settings
+ dependencies:
+   - ai:ai
+   - ai_agents:ai_agents
++  - ai_context:ai_context
+   - canvas:canvas
+diff --git a/ai_google_analytics.install b/ai_google_analytics.install
+index 76eb876..ef6dc71 100644
+--- a/ai_google_analytics.install
++++ b/ai_google_analytics.install
+@@ -2,12 +2,19 @@
+ 
+ /**
+  * @file
+- * Install and update hooks for the AI Google Analytics module.
++ * Install, update, and uninstall hooks for the AI Google Analytics module.
+  */
+ 
+ use Drupal\Core\Field\BaseFieldDefinition;
+ use Drupal\Core\StringTranslation\TranslatableMarkup;
+ 
++/**
++ * Implements hook_uninstall().
++ */
++function ai_google_analytics_uninstall(): void {
++  \Drupal::state()->delete('ai_google_analytics.context_data');
++}
++
+ /**
+  * Add per-page benchmark override fields to Canvas page entities.
+  */
+diff --git a/ai_google_analytics.module b/ai_google_analytics.module
+index 1f191fc..c4a38b8 100644
+--- a/ai_google_analytics.module
++++ b/ai_google_analytics.module
+@@ -2,24 +2,5 @@
+ 
+ /**
+  * @file
+- * Cron and mail hooks for the AI Google Analytics module.
++ * Primary module file for AI Google Analytics.
+  */
+-
+-/**
+- * Implements hook_cron().
+- *
+- * Delegates GA4 metric fetching to the GoogleAnalyticsCronService.
+- */
+-function ai_google_analytics_cron(): void {
+-  \Drupal::service('Drupal\ai_google_analytics\GoogleAnalyticsCronService')->fetchMetrics();
+-}
+-
+-/**
+- * Implements hook_mail().
+- */
+-function ai_google_analytics_mail(string $key, array &$message, array $params): void {
+-  if ($key === 'content_performance_report') {
+-    $message['subject'] = $params['subject'];
+-    $message['body'][] = $params['message'];
+-  }
+-}
+diff --git a/ai_google_analytics.services.yml b/ai_google_analytics.services.yml
+index 0b302de..1f993bd 100644
+--- a/ai_google_analytics.services.yml
++++ b/ai_google_analytics.services.yml
+@@ -15,6 +15,7 @@ services:
+ 
+   Drupal\ai_google_analytics\Hook\GoogleAnalyticsHooks:
+     arguments:
++      $cronService: '@Drupal\ai_google_analytics\GoogleAnalyticsCronService'
+       $benchmarkEvaluator: '@Drupal\ai_google_analytics\BenchmarkEvaluator'
+       $aiAgentManager: '@plugin.manager.ai_agents'
+       $mailManager: '@plugin.manager.mail'
+diff --git a/src/Hook/GoogleAnalyticsHooks.php b/src/Hook/GoogleAnalyticsHooks.php
+index 2620e7e..cd7fcb5 100644
+--- a/src/Hook/GoogleAnalyticsHooks.php
++++ b/src/Hook/GoogleAnalyticsHooks.php
+@@ -7,6 +7,7 @@ namespace Drupal\ai_google_analytics\Hook;
+ use Drupal\ai\OperationType\Chat\ChatInput;
+ use Drupal\ai\OperationType\Chat\ChatMessage;
+ use Drupal\ai_google_analytics\BenchmarkEvaluator;
++use Drupal\ai_google_analytics\GoogleAnalyticsCronService;
+ use Drupal\canvas\Entity\Page;
+ use Drupal\Component\Plugin\PluginManagerInterface;
+ use Drupal\Core\Config\ConfigFactoryInterface;
+@@ -32,6 +33,8 @@ class GoogleAnalyticsHooks {
+   /**
+    * Constructs a GoogleAnalyticsHooks instance.
+    *
++   * @param \Drupal\ai_google_analytics\GoogleAnalyticsCronService $cronService
++   *   The GA cron service.
+    * @param \Drupal\ai_google_analytics\BenchmarkEvaluator $benchmarkEvaluator
+    *   The benchmark evaluator service.
+    * @param \Drupal\Component\Plugin\PluginManagerInterface $aiAgentManager
+@@ -50,6 +53,7 @@ class GoogleAnalyticsHooks {
+    *   The request stack.
+    */
+   public function __construct(
++    protected readonly GoogleAnalyticsCronService $cronService,
+     protected readonly BenchmarkEvaluator $benchmarkEvaluator,
+     protected readonly PluginManagerInterface $aiAgentManager,
+     protected readonly MailManagerInterface $mailManager,
+@@ -60,6 +64,27 @@ class GoogleAnalyticsHooks {
+     protected readonly RequestStack $requestStack,
+   ) {}
+ 
++  /**
++   * Implements hook_cron().
++   *
++   * Delegates GA4 metric fetching to the GoogleAnalyticsCronService.
++   */
++  #[Hook('cron')]
++  public function cron(): void {
++    $this->cronService->fetchMetrics();
++  }
++
++  /**
++   * Implements hook_mail().
++   */
++  #[Hook('mail')]
++  public function mail($key, &$message, $params): void {
++    if ($key === 'content_performance_report') {
++      $message['subject'] = $params['subject'];
++      $message['body'][] = $params['message'];
++    }
++  }
++
+   /**
+    * Implements hook_entity_base_field_info().
+    *
+@@ -256,7 +281,7 @@ class GoogleAnalyticsHooks {
+     $params = [
+       'subject' => 'Underperforming Content Detected',
+       'message' => '<p>Your Analytics Monitoring Agent has identified content that does not meet your analytics goals.</p>'
+-        . '<p>For details, please visit the <a href="' . $base_url . '/admin/content/ga-page-review">AI Analytics Review</a> page.</p>',
++      . '<p>For details, please visit the <a href="' . $base_url . '/admin/content/ga-page-review">AI Analytics Review</a> page.</p>',
+     ];
+     $langcode = $this->currentUser->getPreferredLangcode();
+     $mail_result = $this->mailManager->mail('ai_google_analytics', 'content_performance_report', $to, $langcode, $params);
+@@ -276,7 +301,7 @@ class GoogleAnalyticsHooks {
+    */
+   #[Hook('entity_delete')]
+   public function entityDelete(EntityInterface $entity): void {
+-    if (!$entity instanceof Page) {
++    if ($entity->getEntityTypeId() !== 'canvas_page') {
+       return;
+     }
+ 
+diff --git a/src/Plugin/AiFunctionCall/GoogleAnalytics.php b/src/Plugin/AiFunctionCall/GoogleAnalytics.php
+index 94f8db6..7184aa9 100644
+--- a/src/Plugin/AiFunctionCall/GoogleAnalytics.php
++++ b/src/Plugin/AiFunctionCall/GoogleAnalytics.php
+@@ -10,6 +10,7 @@ use Drupal\ai\Service\FunctionCalling\ExecutableFunctionCallInterface;
+ use Drupal\ai\Service\FunctionCalling\FunctionCallInterface;
+ use Drupal\Core\Config\ConfigFactoryInterface;
+ use Drupal\Core\File\FileSystemInterface;
++use Psr\Log\LoggerInterface;
+ use Drupal\Core\Plugin\Context\ContextDefinition;
+ use Drupal\Core\StringTranslation\TranslatableMarkup;
+ use Google\Analytics\Data\V1beta\Client\BetaAnalyticsDataClient;
+@@ -55,6 +56,11 @@ class GoogleAnalytics extends FunctionCallBase implements ExecutableFunctionCall
+    */
+   protected FileSystemInterface $fileSystem;
+ 
++  /**
++   * The logger channel.
++   */
++  protected LoggerInterface $logger;
++
+   /**
+    * {@inheritdoc}
+    */
+@@ -64,9 +70,11 @@ class GoogleAnalytics extends FunctionCallBase implements ExecutableFunctionCall
+       $plugin_id,
+       $plugin_definition,
+       $container->get('ai.context_definition_normalizer'),
++      $container->get('plugin.manager.ai_data_type_converter'),
+     );
+     $instance->configFactory = $container->get('config.factory');
+     $instance->fileSystem = $container->get('file_system');
++    $instance->logger = $container->get('logger.factory')->get('ai_google_analytics');
+     return $instance;
+   }
+ 
+@@ -155,7 +163,8 @@ class GoogleAnalytics extends FunctionCallBase implements ExecutableFunctionCall
+       $this->setOutput((string) json_encode($output, JSON_UNESCAPED_SLASHES));
+     }
+     catch (\Throwable $e) {
+-      $this->setOutput('Failed to fetch Google Analytics data: ' . $e->getMessage());
++      $this->logger->error('GA API error: @message', ['@message' => $e->getMessage()]);
++      $this->setOutput('Failed to fetch Google Analytics data. Check the site logs for details.');
+     }
+   }
+ 
+diff --git a/tests/src/Unit/BenchmarkEvaluatorTest.php b/tests/src/Unit/BenchmarkEvaluatorTest.php
+deleted file mode 100644
+index 81e27a2..0000000
+--- a/tests/src/Unit/BenchmarkEvaluatorTest.php
++++ /dev/null
+@@ -1,273 +0,0 @@
+-<?php
+-
+-declare(strict_types=1);
+-
+-namespace Drupal\Tests\ai_google_analytics\Unit;
+-
+-use Drupal\ai_google_analytics\BenchmarkEvaluator;
+-use Drupal\Core\Config\ConfigFactoryInterface;
+-use Drupal\Core\Config\ImmutableConfig;
+-use Drupal\Core\Entity\ContentEntityInterface;
+-use Drupal\Core\Field\FieldItemListInterface;
+-use Drupal\Tests\UnitTestCase;
+-
+-/**
+- * Tests the BenchmarkEvaluator service.
+- *
+- * @coversDefaultClass \Drupal\ai_google_analytics\BenchmarkEvaluator
+- * @group ai_google_analytics
+- */
+-class BenchmarkEvaluatorTest extends UnitTestCase {
+-
+-  /**
+-   * The config factory mock.
+-   */
+-  protected ConfigFactoryInterface $configFactory;
+-
+-  /**
+-   * The evaluator under test.
+-   */
+-  protected BenchmarkEvaluator $evaluator;
+-
+-  /**
+-   * {@inheritdoc}
+-   */
+-  protected function setUp(): void {
+-    parent::setUp();
+-
+-    $config = $this->createMock(ImmutableConfig::class);
+-    $config->method('get')
+-      ->willReturnMap([
+-        ['benchmarks.engaged_sessions_min', 100.0],
+-        ['benchmarks.bounce_rate_max', 70.0],
+-        ['benchmarks.key_event_rate_min', 2.0],
+-      ]);
+-
+-    $this->configFactory = $this->createMock(ConfigFactoryInterface::class);
+-    $this->configFactory->method('get')
+-      ->with('ai_google_analytics.settings')
+-      ->willReturn($config);
+-
+-    $this->evaluator = new BenchmarkEvaluator($this->configFactory);
+-  }
+-
+-  /**
+-   * Creates a mock Canvas page entity with the given field values.
+-   *
+-   * @param array $values
+-   *   Field name => value pairs.
+-   *
+-   * @return \Drupal\Core\Entity\ContentEntityInterface
+-   *   The mocked entity.
+-   */
+-  protected function createPageMock(array $values): ContentEntityInterface {
+-    $page = $this->createMock(ContentEntityInterface::class);
+-    $page->method('get')
+-      ->willReturnCallback(function (string $field_name) use ($values) {
+-        $item_list = $this->createMock(FieldItemListInterface::class);
+-        $item_list->value = $values[$field_name] ?? NULL;
+-        return $item_list;
+-      });
+-    return $page;
+-  }
+-
+-  /**
+-   * Tests that a page passing all benchmarks returns passed = true.
+-   *
+-   * @covers ::evaluate
+-   */
+-  public function testAllBenchmarksPass(): void {
+-    $page = $this->createPageMock([
+-      'engaged_sessions' => '200',
+-      'bounce_rate' => '50',
+-      'key_event_rate' => '5',
+-      'benchmark_engaged_sessions_min' => NULL,
+-      'benchmark_bounce_rate_max' => NULL,
+-      'benchmark_key_event_rate_min' => NULL,
+-    ]);
+-
+-    $result = $this->evaluator->evaluate($page);
+-
+-    $this->assertTrue($result['passed']);
+-    $this->assertEmpty($result['failures']);
+-  }
+-
+-  /**
+-   * Tests that a page failing all benchmarks returns passed = false.
+-   *
+-   * @covers ::evaluate
+-   */
+-  public function testAllBenchmarksFail(): void {
+-    $page = $this->createPageMock([
+-      'engaged_sessions' => '10',
+-      'bounce_rate' => '85',
+-      'key_event_rate' => '0.5',
+-      'benchmark_engaged_sessions_min' => NULL,
+-      'benchmark_bounce_rate_max' => NULL,
+-      'benchmark_key_event_rate_min' => NULL,
+-    ]);
+-
+-    $result = $this->evaluator->evaluate($page);
+-
+-    $this->assertFalse($result['passed']);
+-    $this->assertCount(3, $result['failures']);
+-    $this->assertStringContainsString('Engaged sessions', $result['failures'][0]);
+-    $this->assertStringContainsString('Bounce rate', $result['failures'][1]);
+-    $this->assertStringContainsString('Key event rate', $result['failures'][2]);
+-  }
+-
+-  /**
+-   * Tests that only the failing benchmark is reported.
+-   *
+-   * @covers ::evaluate
+-   */
+-  public function testSingleBenchmarkFails(): void {
+-    $page = $this->createPageMock([
+-      'engaged_sessions' => '200',
+-      'bounce_rate' => '85',
+-      'key_event_rate' => '5',
+-      'benchmark_engaged_sessions_min' => NULL,
+-      'benchmark_bounce_rate_max' => NULL,
+-      'benchmark_key_event_rate_min' => NULL,
+-    ]);
+-
+-    $result = $this->evaluator->evaluate($page);
+-
+-    $this->assertFalse($result['passed']);
+-    $this->assertCount(1, $result['failures']);
+-    $this->assertStringContainsString('Bounce rate', $result['failures'][0]);
+-    $this->assertStringContainsString('85.0%', $result['failures'][0]);
+-    $this->assertStringContainsString('70.0%', $result['failures'][0]);
+-  }
+-
+-  /**
+-   * Tests that per-page overrides take precedence over global defaults.
+-   *
+-   * @covers ::evaluate
+-   */
+-  public function testPerPageOverrideTakesPrecedence(): void {
+-    // Global bounce_rate_max is 70, but this page overrides to 90.
+-    $page = $this->createPageMock([
+-      'engaged_sessions' => '200',
+-      'bounce_rate' => '85',
+-      'key_event_rate' => '5',
+-      'benchmark_engaged_sessions_min' => NULL,
+-      'benchmark_bounce_rate_max' => 90.0,
+-      'benchmark_key_event_rate_min' => NULL,
+-    ]);
+-
+-    $result = $this->evaluator->evaluate($page);
+-
+-    // 85 <= 90, so this should pass with the per-page override.
+-    $this->assertTrue($result['passed']);
+-    $this->assertEmpty($result['failures']);
+-  }
+-
+-  /**
+-   * Tests that a stricter per-page override causes a failure.
+-   *
+-   * @covers ::evaluate
+-   */
+-  public function testStricterPerPageOverrideCausesFailure(): void {
+-    // Global engaged_sessions_min is 100, page overrides to 300.
+-    $page = $this->createPageMock([
+-      'engaged_sessions' => '200',
+-      'bounce_rate' => '50',
+-      'key_event_rate' => '5',
+-      'benchmark_engaged_sessions_min' => 300.0,
+-      'benchmark_bounce_rate_max' => NULL,
+-      'benchmark_key_event_rate_min' => NULL,
+-    ]);
+-
+-    $result = $this->evaluator->evaluate($page);
+-
+-    $this->assertFalse($result['passed']);
+-    $this->assertCount(1, $result['failures']);
+-    $this->assertStringContainsString('Engaged sessions', $result['failures'][0]);
+-  }
+-
+-  /**
+-   * Tests that pages with no GA data (empty metrics) pass without error.
+-   *
+-   * @covers ::evaluate
+-   */
+-  public function testEmptyMetricsPass(): void {
+-    $page = $this->createPageMock([
+-      'engaged_sessions' => NULL,
+-      'bounce_rate' => NULL,
+-      'key_event_rate' => NULL,
+-      'benchmark_engaged_sessions_min' => NULL,
+-      'benchmark_bounce_rate_max' => NULL,
+-      'benchmark_key_event_rate_min' => NULL,
+-    ]);
+-
+-    $result = $this->evaluator->evaluate($page);
+-
+-    $this->assertTrue($result['passed']);
+-    $this->assertEmpty($result['failures']);
+-  }
+-
+-  /**
+-   * Tests that empty string metrics (from GA) are treated as no data.
+-   *
+-   * @covers ::evaluate
+-   */
+-  public function testEmptyStringMetricsTreatedAsNull(): void {
+-    $page = $this->createPageMock([
+-      'engaged_sessions' => '',
+-      'bounce_rate' => '',
+-      'key_event_rate' => '',
+-      'benchmark_engaged_sessions_min' => NULL,
+-      'benchmark_bounce_rate_max' => NULL,
+-      'benchmark_key_event_rate_min' => NULL,
+-    ]);
+-
+-    $result = $this->evaluator->evaluate($page);
+-
+-    $this->assertTrue($result['passed']);
+-    $this->assertEmpty($result['failures']);
+-  }
+-
+-  /**
+-   * Tests boundary values — metrics exactly at thresholds pass.
+-   *
+-   * @covers ::evaluate
+-   */
+-  public function testBoundaryValuesPass(): void {
+-    $page = $this->createPageMock([
+-      'engaged_sessions' => '100',
+-      'bounce_rate' => '70',
+-      'key_event_rate' => '2',
+-      'benchmark_engaged_sessions_min' => NULL,
+-      'benchmark_bounce_rate_max' => NULL,
+-      'benchmark_key_event_rate_min' => NULL,
+-    ]);
+-
+-    $result = $this->evaluator->evaluate($page);
+-
+-    $this->assertTrue($result['passed']);
+-    $this->assertEmpty($result['failures']);
+-  }
+-
+-  /**
+-   * Tests values just past thresholds fail.
+-   *
+-   * @covers ::evaluate
+-   */
+-  public function testJustPastBoundaryFails(): void {
+-    $page = $this->createPageMock([
+-      'engaged_sessions' => '99.9',
+-      'bounce_rate' => '70.1',
+-      'key_event_rate' => '1.9',
+-      'benchmark_engaged_sessions_min' => NULL,
+-      'benchmark_bounce_rate_max' => NULL,
+-      'benchmark_key_event_rate_min' => NULL,
+-    ]);
+-
+-    $result = $this->evaluator->evaluate($page);
+-
+-    $this->assertFalse($result['passed']);
+-    $this->assertCount(3, $result['failures']);
+-  }
+-
+-}
+diff --git a/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php b/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php
+deleted file mode 100644
+index 19743a7..0000000
+--- a/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php
++++ /dev/null
+@@ -1,336 +0,0 @@
+-<?php
+-
+-declare(strict_types=1);
+-
+-namespace Drupal\Tests\ai_google_analytics\Unit;
+-
+-use Drupal\ai_google_analytics\BenchmarkEvaluator;
+-use Drupal\ai_google_analytics\Hook\GoogleAnalyticsHooks;
+-use Drupal\canvas\Entity\Page;
+-use Drupal\Component\Plugin\PluginManagerInterface;
+-use Drupal\Core\Config\ConfigFactoryInterface;
+-use Drupal\Core\Config\ImmutableConfig;
+-use Drupal\Core\Field\FieldItemListInterface;
+-use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+-use Drupal\Core\Logger\LoggerChannelInterface;
+-use Drupal\Core\Mail\MailManagerInterface;
+-use Drupal\Core\Session\AccountProxyInterface;
+-use Drupal\Core\State\StateInterface;
+-use Drupal\Tests\UnitTestCase;
+-use Symfony\Component\HttpFoundation\Request;
+-use Symfony\Component\HttpFoundation\RequestStack;
+-
+-/**
+- * Tests the presave hook logic in GoogleAnalyticsHooks.
+- *
+- * @coversDefaultClass \Drupal\ai_google_analytics\Hook\GoogleAnalyticsHooks
+- * @group ai_google_analytics
+- */
+-class GoogleAnalyticsHooksPresaveTest extends UnitTestCase {
+-
+-  /**
+-   * The mock benchmark evaluator.
+-   */
+-  protected BenchmarkEvaluator $evaluator;
+-
+-  /**
+-   * The mock AI agent manager.
+-   */
+-  protected PluginManagerInterface $agentManager;
+-
+-  /**
+-   * The mock mail manager.
+-   */
+-  protected MailManagerInterface $mailManager;
+-
+-  /**
+-   * The mock state service.
+-   */
+-  protected StateInterface $state;
+-
+-  /**
+-   * The mock logger.
+-   */
+-  protected LoggerChannelInterface $logger;
+-
+-  /**
+-   * The hooks instance under test.
+-   */
+-  protected GoogleAnalyticsHooks $hooks;
+-
+-  /**
+-   * {@inheritdoc}
+-   */
+-  protected function setUp(): void {
+-    parent::setUp();
+-
+-    $this->evaluator = $this->createMock(BenchmarkEvaluator::class);
+-    $this->agentManager = $this->createMock(PluginManagerInterface::class);
+-    $this->mailManager = $this->createMock(MailManagerInterface::class);
+-    $this->state = $this->createMock(StateInterface::class);
+-
+-    $this->logger = $this->createMock(LoggerChannelInterface::class);
+-    $loggerFactory = $this->createMock(LoggerChannelFactoryInterface::class);
+-    $loggerFactory->method('get')
+-      ->with('ai_google_analytics')
+-      ->willReturn($this->logger);
+-
+-    $siteConfig = $this->createMock(ImmutableConfig::class);
+-    $siteConfig->method('get')
+-      ->with('mail')
+-      ->willReturn('admin@example.com');
+-
+-    $configFactory = $this->createMock(ConfigFactoryInterface::class);
+-    $configFactory->method('get')
+-      ->with('system.site')
+-      ->willReturn($siteConfig);
+-
+-    $currentUser = $this->createMock(AccountProxyInterface::class);
+-    $currentUser->method('getPreferredLangcode')
+-      ->willReturn('en');
+-
+-    $request = new Request();
+-    $requestStack = new RequestStack();
+-    $requestStack->push($request);
+-
+-    $this->hooks = new GoogleAnalyticsHooks(
+-      $this->evaluator,
+-      $this->agentManager,
+-      $this->mailManager,
+-      $configFactory,
+-      $currentUser,
+-      $loggerFactory,
+-      $this->state,
+-      $requestStack,
+-    );
+-  }
+-
+-  /**
+-   * Creates a mock Canvas page entity with metric field values.
+-   *
+-   * @param array $values
+-   *   Field name => value pairs for current entity.
+-   * @param array $original_values
+-   *   Field name => value pairs for original entity.
+-   * @param string $id
+-   *   The entity ID.
+-   * @param string $label
+-   *   The entity label.
+-   *
+-   * @return \Drupal\canvas\Entity\Page
+-   *   The mocked page entity.
+-   */
+-  protected function createPageMock(array $values, array $original_values, string $id = '1', string $label = 'Test Page'): Page {
+-    $page = $this->createMock(Page::class);
+-    $page->method('isNew')->willReturn(FALSE);
+-    $page->method('id')->willReturn($id);
+-    $page->method('label')->willReturn($label);
+-    $page->method('get')
+-      ->willReturnCallback(function (string $field) use ($values) {
+-        $item = $this->createMock(FieldItemListInterface::class);
+-        $item->value = $values[$field] ?? NULL;
+-        return $item;
+-      });
+-
+-    $original = $this->createMock(Page::class);
+-    $original->method('get')
+-      ->willReturnCallback(function (string $field) use ($original_values) {
+-        $item = $this->createMock(FieldItemListInterface::class);
+-        $item->value = $original_values[$field] ?? NULL;
+-        return $item;
+-      });
+-
+-    $page->original = $original;
+-
+-    return $page;
+-  }
+-
+-  /**
+-   * Tests that unchanged metrics skip evaluation entirely.
+-   *
+-   * @covers ::canvasPagePresave
+-   */
+-  public function testUnchangedMetricsSkipsEvaluation(): void {
+-    $values = [
+-      'engaged_sessions' => '200',
+-      'bounce_rate' => '50',
+-      'key_event_rate' => '5',
+-    ];
+-    $page = $this->createPageMock($values, $values);
+-
+-    $this->evaluator->expects($this->never())->method('evaluate');
+-    $this->state->expects($this->never())->method('set');
+-
+-    $this->hooks->canvasPagePresave($page);
+-  }
+-
+-  /**
+-   * Tests that passing benchmarks clear stale state.
+-   *
+-   * @covers ::canvasPagePresave
+-   */
+-  public function testPassingBenchmarksClearStaleState(): void {
+-    $page = $this->createPageMock(
+-      ['engaged_sessions' => '200', 'bounce_rate' => '50', 'key_event_rate' => '5'],
+-      ['engaged_sessions' => '100', 'bounce_rate' => '80', 'key_event_rate' => '1'],
+-      '42',
+-    );
+-
+-    $this->evaluator->method('evaluate')
+-      ->willReturn(['passed' => TRUE, 'failures' => []]);
+-
+-    // Page 42 is currently flagged in state.
+-    $this->state->method('get')
+-      ->with('ai_google_analytics.context_data', [])
+-      ->willReturn(['42' => ['summary' => 'Old failure']]);
+-
+-    // Expect state to be updated with page 42 removed.
+-    $this->state->expects($this->once())
+-      ->method('set')
+-      ->with('ai_google_analytics.context_data', []);
+-
+-    $this->hooks->canvasPagePresave($page);
+-  }
+-
+-  /**
+-   * Tests that failing benchmarks call agent and update state.
+-   *
+-   * @covers ::canvasPagePresave
+-   */
+-  public function testFailingBenchmarksCallAgentAndUpdateState(): void {
+-    $page = $this->createPageMock(
+-      ['engaged_sessions' => '10', 'bounce_rate' => '85', 'key_event_rate' => '0.5'],
+-      ['engaged_sessions' => '200', 'bounce_rate' => '50', 'key_event_rate' => '5'],
+-      '7',
+-    );
+-
+-    $this->evaluator->method('evaluate')
+-      ->willReturn([
+-        'passed' => FALSE,
+-        'failures' => ['Bounce rate (85.0%) exceeds maximum threshold (70.0%)'],
+-      ]);
+-
+-    // Mock agent returning structured output.
+-    $agent = $this->createMock(\stdClass::class, ['setChatInput', 'determineSolvability', 'solve']);
+-    $agent->method('solve')
+-      ->willReturn('{"summary": "High bounce rate detected", "recommendations": "Improve page load time"}');
+-
+-    // Use a callback for createInstance to handle method chaining.
+-    $mockAgent = new class {
+-
+-      public function setChatInput($input): void {}
+-
+-      public function determineSolvability(): void {}
+-
+-      public function solve(): string {
+-        return '{"summary": "High bounce rate detected", "recommendations": "Improve page load time"}';
+-      }
+-
+-    };
+-    $this->agentManager->method('createInstance')
+-      ->with('analytics_monitoring_agent')
+-      ->willReturn($mockAgent);
+-
+-    $this->state->method('get')
+-      ->with('ai_google_analytics.context_data', [])
+-      ->willReturn([]);
+-
+-    $this->mailManager->method('mail')
+-      ->willReturn(['result' => TRUE]);
+-
+-    // Expect state updated with the page flagged.
+-    $this->state->expects($this->once())
+-      ->method('set')
+-      ->with(
+-        'ai_google_analytics.context_data',
+-        $this->callback(function ($data) {
+-          return isset($data['7']['summary'])
+-            && str_contains($data['7']['summary'], 'High bounce rate detected');
+-        }),
+-      );
+-
+-    $this->hooks->canvasPagePresave($page);
+-  }
+-
+-  /**
+-   * Tests that agent failure falls back to deterministic failure text.
+-   *
+-   * @covers ::canvasPagePresave
+-   */
+-  public function testAgentFailureFallsBackToFailureText(): void {
+-    $page = $this->createPageMock(
+-      ['engaged_sessions' => '10', 'bounce_rate' => '85', 'key_event_rate' => '0.5'],
+-      ['engaged_sessions' => '200', 'bounce_rate' => '50', 'key_event_rate' => '5'],
+-      '9',
+-    );
+-
+-    $this->evaluator->method('evaluate')
+-      ->willReturn([
+-        'passed' => FALSE,
+-        'failures' => ['Bounce rate (85.0%) exceeds maximum threshold (70.0%)'],
+-      ]);
+-
+-    // Agent throws an exception.
+-    $this->agentManager->method('createInstance')
+-      ->willThrowException(new \RuntimeException('LLM provider unavailable'));
+-
+-    $this->state->method('get')
+-      ->with('ai_google_analytics.context_data', [])
+-      ->willReturn([]);
+-
+-    $this->mailManager->method('mail')
+-      ->willReturn(['result' => TRUE]);
+-
+-    // State should still be updated with the deterministic failure text.
+-    $this->state->expects($this->once())
+-      ->method('set')
+-      ->with(
+-        'ai_google_analytics.context_data',
+-        $this->callback(function ($data) {
+-          return isset($data['9']['summary'])
+-            && str_contains($data['9']['summary'], 'Bounce rate (85.0%) exceeds maximum threshold');
+-        }),
+-      );
+-
+-    // Error should be logged.
+-    $this->logger->expects($this->atLeastOnce())
+-      ->method('error');
+-
+-    $this->hooks->canvasPagePresave($page);
+-  }
+-
+-  /**
+-   * Tests that new entities are skipped.
+-   *
+-   * @covers ::canvasPagePresave
+-   */
+-  public function testNewEntitySkipped(): void {
+-    $page = $this->createMock(Page::class);
+-    $page->method('isNew')->willReturn(TRUE);
+-
+-    $this->evaluator->expects($this->never())->method('evaluate');
+-
+-    $this->hooks->canvasPagePresave($page);
+-  }
+-
+-  /**
+-   * Tests entity delete clears state.
+-   *
+-   * @covers ::entityDelete
+-   */
+-  public function testEntityDeleteClearsState(): void {
+-    $page = $this->createMock(Page::class);
+-    $page->method('id')->willReturn('5');
+-
+-    $this->state->method('get')
+-      ->with('ai_google_analytics.context_data', [])
+-      ->willReturn(['5' => ['summary' => 'Some failure'], '8' => ['summary' => 'Other']]);
+-
+-    $this->state->expects($this->once())
+-      ->method('set')
+-      ->with('ai_google_analytics.context_data', ['8' => ['summary' => 'Other']]);
+-
+-    $this->hooks->entityDelete($page);
+-  }
+-
+-}

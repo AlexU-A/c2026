@@ -1,0 +1,633 @@
+diff --git a/tests/src/Unit/BenchmarkEvaluatorTest.php b/tests/src/Unit/BenchmarkEvaluatorTest.php
+new file mode 100644
+index 0000000..c2caab9
+--- /dev/null
++++ b/tests/src/Unit/BenchmarkEvaluatorTest.php
+@@ -0,0 +1,274 @@
++<?php
++
++declare(strict_types=1);
++
++namespace Drupal\Tests\ai_google_analytics\Unit;
++
++use Drupal\ai_google_analytics\BenchmarkEvaluator;
++use Drupal\Core\Config\ConfigFactoryInterface;
++use Drupal\Core\Config\ImmutableConfig;
++use Drupal\Core\Entity\ContentEntityInterface;
++use Drupal\Tests\UnitTestCase;
++
++/**
++ * Tests the BenchmarkEvaluator service.
++ *
++ * @coversDefaultClass \Drupal\ai_google_analytics\BenchmarkEvaluator
++ * @group ai_google_analytics
++ */
++class BenchmarkEvaluatorTest extends UnitTestCase {
++
++  /**
++   * The config factory mock.
++   */
++  protected ConfigFactoryInterface $configFactory;
++
++  /**
++   * The evaluator under test.
++   */
++  protected BenchmarkEvaluator $evaluator;
++
++  /**
++   * {@inheritdoc}
++   */
++  protected function setUp(): void {
++    parent::setUp();
++
++    $config = $this->createMock(ImmutableConfig::class);
++    $config->method('get')
++      ->willReturnMap([
++        ['benchmarks.engaged_sessions_min', 100.0],
++        ['benchmarks.bounce_rate_max', 70.0],
++        ['benchmarks.key_event_rate_min', 2.0],
++      ]);
++
++    $this->configFactory = $this->createMock(ConfigFactoryInterface::class);
++    $this->configFactory->method('get')
++      ->with('ai_google_analytics.settings')
++      ->willReturn($config);
++
++    $this->evaluator = new BenchmarkEvaluator($this->configFactory);
++  }
++
++  /**
++   * Creates a mock Canvas page entity with the given field values.
++   *
++   * @param array $values
++   *   Field name => value pairs.
++   *
++   * @return \Drupal\Core\Entity\ContentEntityInterface
++   *   The mocked entity.
++   */
++  protected function createPageMock(array $values): ContentEntityInterface {
++    $page = $this->createMock(ContentEntityInterface::class);
++    $page->method('get')
++      ->willReturnCallback(function (string $field_name) use ($values) {
++        // Use stdClass instead of FieldItemListInterface mock because PHPUnit
++        // 11 interface mocks do not support dynamic properties in PHP 8.3.
++        $item_list = new \stdClass();
++        $item_list->value = $values[$field_name] ?? NULL;
++        return $item_list;
++      });
++    return $page;
++  }
++
++  /**
++   * Tests that a page passing all benchmarks returns passed = true.
++   *
++   * @covers ::evaluate
++   */
++  public function testAllBenchmarksPass(): void {
++    $page = $this->createPageMock([
++      'engaged_sessions' => '200',
++      'bounce_rate' => '50',
++      'key_event_rate' => '5',
++      'benchmark_engaged_sessions_min' => NULL,
++      'benchmark_bounce_rate_max' => NULL,
++      'benchmark_key_event_rate_min' => NULL,
++    ]);
++
++    $result = $this->evaluator->evaluate($page);
++
++    $this->assertTrue($result['passed']);
++    $this->assertEmpty($result['failures']);
++  }
++
++  /**
++   * Tests that a page failing all benchmarks returns passed = false.
++   *
++   * @covers ::evaluate
++   */
++  public function testAllBenchmarksFail(): void {
++    $page = $this->createPageMock([
++      'engaged_sessions' => '10',
++      'bounce_rate' => '85',
++      'key_event_rate' => '0.5',
++      'benchmark_engaged_sessions_min' => NULL,
++      'benchmark_bounce_rate_max' => NULL,
++      'benchmark_key_event_rate_min' => NULL,
++    ]);
++
++    $result = $this->evaluator->evaluate($page);
++
++    $this->assertFalse($result['passed']);
++    $this->assertCount(3, $result['failures']);
++    $this->assertStringContainsString('Engaged sessions', $result['failures'][0]);
++    $this->assertStringContainsString('Bounce rate', $result['failures'][1]);
++    $this->assertStringContainsString('Key event rate', $result['failures'][2]);
++  }
++
++  /**
++   * Tests that only the failing benchmark is reported.
++   *
++   * @covers ::evaluate
++   */
++  public function testSingleBenchmarkFails(): void {
++    $page = $this->createPageMock([
++      'engaged_sessions' => '200',
++      'bounce_rate' => '85',
++      'key_event_rate' => '5',
++      'benchmark_engaged_sessions_min' => NULL,
++      'benchmark_bounce_rate_max' => NULL,
++      'benchmark_key_event_rate_min' => NULL,
++    ]);
++
++    $result = $this->evaluator->evaluate($page);
++
++    $this->assertFalse($result['passed']);
++    $this->assertCount(1, $result['failures']);
++    $this->assertStringContainsString('Bounce rate', $result['failures'][0]);
++    $this->assertStringContainsString('85.0%', $result['failures'][0]);
++    $this->assertStringContainsString('70.0%', $result['failures'][0]);
++  }
++
++  /**
++   * Tests that per-page overrides take precedence over global defaults.
++   *
++   * @covers ::evaluate
++   */
++  public function testPerPageOverrideTakesPrecedence(): void {
++    // Global bounce_rate_max is 70, but this page overrides to 90.
++    $page = $this->createPageMock([
++      'engaged_sessions' => '200',
++      'bounce_rate' => '85',
++      'key_event_rate' => '5',
++      'benchmark_engaged_sessions_min' => NULL,
++      'benchmark_bounce_rate_max' => 90.0,
++      'benchmark_key_event_rate_min' => NULL,
++    ]);
++
++    $result = $this->evaluator->evaluate($page);
++
++    // 85 <= 90, so this should pass with the per-page override.
++    $this->assertTrue($result['passed']);
++    $this->assertEmpty($result['failures']);
++  }
++
++  /**
++   * Tests that a stricter per-page override causes a failure.
++   *
++   * @covers ::evaluate
++   */
++  public function testStricterPerPageOverrideCausesFailure(): void {
++    // Global engaged_sessions_min is 100, page overrides to 300.
++    $page = $this->createPageMock([
++      'engaged_sessions' => '200',
++      'bounce_rate' => '50',
++      'key_event_rate' => '5',
++      'benchmark_engaged_sessions_min' => 300.0,
++      'benchmark_bounce_rate_max' => NULL,
++      'benchmark_key_event_rate_min' => NULL,
++    ]);
++
++    $result = $this->evaluator->evaluate($page);
++
++    $this->assertFalse($result['passed']);
++    $this->assertCount(1, $result['failures']);
++    $this->assertStringContainsString('Engaged sessions', $result['failures'][0]);
++  }
++
++  /**
++   * Tests that pages with no GA data (empty metrics) pass without error.
++   *
++   * @covers ::evaluate
++   */
++  public function testEmptyMetricsPass(): void {
++    $page = $this->createPageMock([
++      'engaged_sessions' => NULL,
++      'bounce_rate' => NULL,
++      'key_event_rate' => NULL,
++      'benchmark_engaged_sessions_min' => NULL,
++      'benchmark_bounce_rate_max' => NULL,
++      'benchmark_key_event_rate_min' => NULL,
++    ]);
++
++    $result = $this->evaluator->evaluate($page);
++
++    $this->assertTrue($result['passed']);
++    $this->assertEmpty($result['failures']);
++  }
++
++  /**
++   * Tests that empty string metrics (from GA) are treated as no data.
++   *
++   * @covers ::evaluate
++   */
++  public function testEmptyStringMetricsTreatedAsNull(): void {
++    $page = $this->createPageMock([
++      'engaged_sessions' => '',
++      'bounce_rate' => '',
++      'key_event_rate' => '',
++      'benchmark_engaged_sessions_min' => NULL,
++      'benchmark_bounce_rate_max' => NULL,
++      'benchmark_key_event_rate_min' => NULL,
++    ]);
++
++    $result = $this->evaluator->evaluate($page);
++
++    $this->assertTrue($result['passed']);
++    $this->assertEmpty($result['failures']);
++  }
++
++  /**
++   * Tests boundary values — metrics exactly at thresholds pass.
++   *
++   * @covers ::evaluate
++   */
++  public function testBoundaryValuesPass(): void {
++    $page = $this->createPageMock([
++      'engaged_sessions' => '100',
++      'bounce_rate' => '70',
++      'key_event_rate' => '2',
++      'benchmark_engaged_sessions_min' => NULL,
++      'benchmark_bounce_rate_max' => NULL,
++      'benchmark_key_event_rate_min' => NULL,
++    ]);
++
++    $result = $this->evaluator->evaluate($page);
++
++    $this->assertTrue($result['passed']);
++    $this->assertEmpty($result['failures']);
++  }
++
++  /**
++   * Tests values just past thresholds fail.
++   *
++   * @covers ::evaluate
++   */
++  public function testJustPastBoundaryFails(): void {
++    $page = $this->createPageMock([
++      'engaged_sessions' => '99.9',
++      'bounce_rate' => '70.1',
++      'key_event_rate' => '1.9',
++      'benchmark_engaged_sessions_min' => NULL,
++      'benchmark_bounce_rate_max' => NULL,
++      'benchmark_key_event_rate_min' => NULL,
++    ]);
++
++    $result = $this->evaluator->evaluate($page);
++
++    $this->assertFalse($result['passed']);
++    $this->assertCount(3, $result['failures']);
++  }
++
++}
+diff --git a/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php b/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php
+new file mode 100644
+index 0000000..6b4b506
+--- /dev/null
++++ b/tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php
+@@ -0,0 +1,347 @@
++<?php
++
++declare(strict_types=1);
++
++namespace Drupal\Tests\ai_google_analytics\Unit;
++
++use Drupal\ai_google_analytics\BenchmarkEvaluator;
++use Drupal\ai_google_analytics\GoogleAnalyticsCronService;
++use Drupal\ai_google_analytics\Hook\GoogleAnalyticsHooks;
++use Drupal\Component\Plugin\PluginManagerInterface;
++use Drupal\Core\Entity\ContentEntityInterface;
++use Drupal\Core\Config\ConfigFactoryInterface;
++use Drupal\Core\Config\ImmutableConfig;
++use Drupal\Core\Logger\LoggerChannelFactoryInterface;
++use Drupal\Core\Logger\LoggerChannelInterface;
++use Drupal\Core\Mail\MailManagerInterface;
++use Drupal\Core\Session\AccountProxyInterface;
++use Drupal\Core\State\StateInterface;
++use Drupal\Tests\UnitTestCase;
++use Symfony\Component\HttpFoundation\Request;
++use Symfony\Component\HttpFoundation\RequestStack;
++
++/**
++ * Tests the presave hook logic in GoogleAnalyticsHooks.
++ *
++ * @coversDefaultClass \Drupal\ai_google_analytics\Hook\GoogleAnalyticsHooks
++ * @group ai_google_analytics
++ */
++class GoogleAnalyticsHooksPresaveTest extends UnitTestCase {
++
++  /**
++   * The mock benchmark evaluator.
++   */
++  protected BenchmarkEvaluator $evaluator;
++
++  /**
++   * The mock AI agent manager.
++   */
++  protected PluginManagerInterface $agentManager;
++
++  /**
++   * The mock mail manager.
++   */
++  protected MailManagerInterface $mailManager;
++
++  /**
++   * The mock state service.
++   */
++  protected StateInterface $state;
++
++  /**
++   * The mock logger.
++   */
++  protected LoggerChannelInterface $logger;
++
++  /**
++   * The hooks instance under test.
++   */
++  protected GoogleAnalyticsHooks $hooks;
++
++  /**
++   * {@inheritdoc}
++   */
++  protected function setUp(): void {
++    parent::setUp();
++
++    $this->evaluator = $this->createMock(BenchmarkEvaluator::class);
++    $this->agentManager = $this->createMock(PluginManagerInterface::class);
++    $this->mailManager = $this->createMock(MailManagerInterface::class);
++    $this->state = $this->createMock(StateInterface::class);
++
++    $this->logger = $this->createMock(LoggerChannelInterface::class);
++    $loggerFactory = $this->createMock(LoggerChannelFactoryInterface::class);
++    $loggerFactory->method('get')
++      ->with('ai_google_analytics')
++      ->willReturn($this->logger);
++
++    $siteConfig = $this->createMock(ImmutableConfig::class);
++    $siteConfig->method('get')
++      ->with('mail')
++      ->willReturn('admin@example.com');
++
++    $configFactory = $this->createMock(ConfigFactoryInterface::class);
++    $configFactory->method('get')
++      ->with('system.site')
++      ->willReturn($siteConfig);
++
++    $currentUser = $this->createMock(AccountProxyInterface::class);
++    $currentUser->method('getPreferredLangcode')
++      ->willReturn('en');
++
++    $request = new Request();
++    $requestStack = new RequestStack();
++    $requestStack->push($request);
++
++    $cronService = $this->createMock(GoogleAnalyticsCronService::class);
++
++    $this->hooks = new GoogleAnalyticsHooks(
++      $cronService,
++      $this->evaluator,
++      $this->agentManager,
++      $this->mailManager,
++      $configFactory,
++      $currentUser,
++      $loggerFactory,
++      $this->state,
++      $requestStack,
++    );
++  }
++
++  /**
++   * Creates a mock Canvas page entity with metric field values.
++   *
++   * @param array $values
++   *   Field name => value pairs for current entity.
++   * @param array $original_values
++   *   Field name => value pairs for original entity.
++   * @param string $id
++   *   The entity ID.
++   * @param string $label
++   *   The entity label.
++   *
++   * @return \Drupal\Core\Entity\ContentEntityInterface
++   *   The mocked page entity.
++   */
++  protected function createPageMock(array $values, array $original_values, string $id = '1', string $label = 'Test Page'): ContentEntityInterface {
++    $page = $this->createMock(ContentEntityInterface::class);
++    $page->method('isNew')->willReturn(FALSE);
++    $page->method('id')->willReturn($id);
++    $page->method('label')->willReturn($label);
++    $page->method('getEntityTypeId')->willReturn('canvas_page');
++    $page->method('get')
++      ->willReturnCallback(function (string $field) use ($values) {
++        // Use stdClass instead of FieldItemListInterface mock because PHPUnit
++        // 11 interface mocks do not support dynamic properties in PHP 8.3.
++        $item = new \stdClass();
++        $item->value = $values[$field] ?? NULL;
++        return $item;
++      });
++
++    $original = $this->createMock(ContentEntityInterface::class);
++    $original->method('get')
++      ->willReturnCallback(function (string $field) use ($original_values) {
++        $item = new \stdClass();
++        $item->value = $original_values[$field] ?? NULL;
++        return $item;
++      });
++
++    $page->original = $original;
++
++    return $page;
++  }
++
++  /**
++   * Tests that unchanged metrics skip evaluation entirely.
++   *
++   * @covers ::canvasPagePresave
++   */
++  public function testUnchangedMetricsSkipsEvaluation(): void {
++    $values = [
++      'engaged_sessions' => '200',
++      'bounce_rate' => '50',
++      'key_event_rate' => '5',
++    ];
++    $page = $this->createPageMock($values, $values);
++
++    $this->evaluator->expects($this->never())->method('evaluate');
++    $this->state->expects($this->never())->method('set');
++
++    $this->hooks->canvasPagePresave($page);
++  }
++
++  /**
++   * Tests that passing benchmarks clear stale state.
++   *
++   * @covers ::canvasPagePresave
++   */
++  public function testPassingBenchmarksClearStaleState(): void {
++    $page = $this->createPageMock(
++      ['engaged_sessions' => '200', 'bounce_rate' => '50', 'key_event_rate' => '5'],
++      ['engaged_sessions' => '100', 'bounce_rate' => '80', 'key_event_rate' => '1'],
++      '42',
++    );
++
++    $this->evaluator->method('evaluate')
++      ->willReturn(['passed' => TRUE, 'failures' => []]);
++
++    // Page 42 is currently flagged in state.
++    $this->state->method('get')
++      ->with('ai_google_analytics.context_data', [])
++      ->willReturn(['42' => ['summary' => 'Old failure']]);
++
++    // Expect state to be updated with page 42 removed.
++    $this->state->expects($this->once())
++      ->method('set')
++      ->with('ai_google_analytics.context_data', []);
++
++    $this->hooks->canvasPagePresave($page);
++  }
++
++  /**
++   * Tests that failing benchmarks call agent and update state.
++   *
++   * @covers ::canvasPagePresave
++   */
++  public function testFailingBenchmarksCallAgentAndUpdateState(): void {
++    $page = $this->createPageMock(
++      ['engaged_sessions' => '10', 'bounce_rate' => '85', 'key_event_rate' => '0.5'],
++      ['engaged_sessions' => '200', 'bounce_rate' => '50', 'key_event_rate' => '5'],
++      '7',
++    );
++
++    $this->evaluator->method('evaluate')
++      ->willReturn([
++        'passed' => FALSE,
++        'failures' => ['Bounce rate (85.0%) exceeds maximum threshold (70.0%)'],
++      ]);
++
++    // Mock agent returning structured output via anonymous class.
++    $mockAgent = new class {
++
++      /**
++       * {@inheritdoc}
++       */
++      public function setChatInput($input): void {}
++
++      /**
++       * {@inheritdoc}
++       */
++      public function determineSolvability(): void {}
++
++      /**
++       * {@inheritdoc}
++       */
++      public function solve(): string {
++        return '{"summary": "High bounce rate detected", "recommendations": "Improve page load time"}';
++      }
++
++    };
++    $this->agentManager->method('createInstance')
++      ->with('analytics_monitoring_agent')
++      ->willReturn($mockAgent);
++
++    $this->state->method('get')
++      ->with('ai_google_analytics.context_data', [])
++      ->willReturn([]);
++
++    $this->mailManager->method('mail')
++      ->willReturn(['result' => TRUE]);
++
++    // Expect state updated with the page flagged.
++    $this->state->expects($this->once())
++      ->method('set')
++      ->with(
++        'ai_google_analytics.context_data',
++        $this->callback(function ($data) {
++          return isset($data['7']['summary'])
++            && str_contains($data['7']['summary'], 'High bounce rate detected');
++        }),
++      );
++
++    $this->hooks->canvasPagePresave($page);
++  }
++
++  /**
++   * Tests that agent failure falls back to deterministic failure text.
++   *
++   * @covers ::canvasPagePresave
++   */
++  public function testAgentFailureFallsBackToFailureText(): void {
++    $page = $this->createPageMock(
++      ['engaged_sessions' => '10', 'bounce_rate' => '85', 'key_event_rate' => '0.5'],
++      ['engaged_sessions' => '200', 'bounce_rate' => '50', 'key_event_rate' => '5'],
++      '9',
++    );
++
++    $this->evaluator->method('evaluate')
++      ->willReturn([
++        'passed' => FALSE,
++        'failures' => ['Bounce rate (85.0%) exceeds maximum threshold (70.0%)'],
++      ]);
++
++    // Agent throws an exception.
++    $this->agentManager->method('createInstance')
++      ->willThrowException(new \RuntimeException('LLM provider unavailable'));
++
++    $this->state->method('get')
++      ->with('ai_google_analytics.context_data', [])
++      ->willReturn([]);
++
++    $this->mailManager->method('mail')
++      ->willReturn(['result' => TRUE]);
++
++    // State should still be updated with the deterministic failure text.
++    $this->state->expects($this->once())
++      ->method('set')
++      ->with(
++        'ai_google_analytics.context_data',
++        $this->callback(function ($data) {
++          return isset($data['9']['summary'])
++            && str_contains($data['9']['summary'], 'Bounce rate (85.0%) exceeds maximum threshold');
++        }),
++      );
++
++    // Error should be logged.
++    $this->logger->expects($this->atLeastOnce())
++      ->method('error');
++
++    $this->hooks->canvasPagePresave($page);
++  }
++
++  /**
++   * Tests that new entities are skipped.
++   *
++   * @covers ::canvasPagePresave
++   */
++  public function testNewEntitySkipped(): void {
++    $page = $this->createMock(ContentEntityInterface::class);
++    $page->method('isNew')->willReturn(TRUE);
++
++    $this->evaluator->expects($this->never())->method('evaluate');
++
++    $this->hooks->canvasPagePresave($page);
++  }
++
++  /**
++   * Tests entity delete clears state.
++   *
++   * @covers ::entityDelete
++   */
++  public function testEntityDeleteClearsState(): void {
++    $page = $this->createMock(ContentEntityInterface::class);
++    $page->method('id')->willReturn('5');
++    $page->method('getEntityTypeId')->willReturn('canvas_page');
++
++    $this->state->method('get')
++      ->with('ai_google_analytics.context_data', [])
++      ->willReturn(['5' => ['summary' => 'Some failure'], '8' => ['summary' => 'Other']]);
++
++    $this->state->expects($this->once())
++      ->method('set')
++      ->with('ai_google_analytics.context_data', ['8' => ['summary' => 'Other']]);
++
++    $this->hooks->entityDelete($page);
++  }
++
++}

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Add unit tests for BenchmarkEvaluator and presave hook logic</title>
+</head>
+<body>
+
+<h3>Problem statement</h3>
+
+<p>The <code>ai_google_analytics</code> module has zero test coverage. The two most important code paths — benchmark threshold evaluation and the Canvas page presave hook — involve conditional branching, fallback behavior, and state management that are difficult to verify manually and easy to break during future changes.</p>
+
+<p>Specifically:</p>
+
+<ul>
+  <li>The <code>BenchmarkEvaluator</code> service performs deterministic pass/fail comparisons against configurable thresholds with per-page override support. Without tests, boundary conditions and NULL-handling are unverified.</li>
+  <li>The presave hook in <code>GoogleAnalyticsHooks</code> orchestrates evaluation, conditional AI agent calls, state management, and email notification across several branches: unchanged metrics (skip), passing page (clear stale state), failing page with agent available, failing page with agent unavailable (fallback), new entity (skip), and entity delete (clean up state). These branches are untestable without the refactor that introduced constructor-injected services.</li>
+</ul>
+
+<h3>Dependency</h3>
+
+<p>This issue depends on the companion issue "Refactor to service architecture with dependency injection, config schema, and packaging". The test files mock <code>BenchmarkEvaluator</code> and construct <code>GoogleAnalyticsHooks</code> via constructor injection — both require that issue's changes. Please merge the architecture refactor issue before this one.</p>
+
+<h3>Proposed resolution</h3>
+
+<p>Two PHPUnit test files covering the <code>BenchmarkEvaluator</code> service and the presave/delete hook logic in <code>GoogleAnalyticsHooks</code>. Both use <code>UnitTestCase</code> (no Drupal bootstrap required) and are compatible with PHPUnit 11 and PHP 8.3+.</p>
+
+<h4><code>BenchmarkEvaluatorTest</code> — 8 test cases</h4>
+
+<p>File: <code>tests/src/Unit/BenchmarkEvaluatorTest.php</code></p>
+
+<p>The test constructs a real <code>BenchmarkEvaluator</code> instance with a mocked <code>ConfigFactoryInterface</code> providing global defaults: <code>engaged_sessions_min = 100</code>, <code>bounce_rate_max = 70</code>, <code>key_event_rate_min = 2</code>. Entity mocks use <code>stdClass</code> for field item lists rather than <code>FieldItemListInterface</code> mocks, because PHPUnit 11 does not support dynamic properties on interface mocks in PHP 8.3.</p>
+
+<ul>
+  <li><strong>All benchmarks pass</strong> — metrics comfortably above/below thresholds, all overrides NULL; expects <code>passed = true</code>, empty failures array.</li>
+  <li><strong>All benchmarks fail</strong> — metrics failing all three thresholds; expects <code>passed = false</code>, three failure messages each containing the metric name.</li>
+  <li><strong>Single benchmark fails</strong> — only bounce rate exceeds threshold; expects exactly one failure message containing the actual value and the threshold value.</li>
+  <li><strong>Per-page override takes precedence (lenient)</strong> — global <code>bounce_rate_max</code> is 70, page overrides to 90; a bounce rate of 85 should pass with the override in place.</li>
+  <li><strong>Per-page override causes failure (stricter)</strong> — global <code>engaged_sessions_min</code> is 100, page overrides to 300; a value of 200 should fail against the stricter per-page threshold.</li>
+  <li><strong>Empty metrics pass</strong> — NULL field values; expects <code>passed = true</code> (no data means no failure).</li>
+  <li><strong>Empty string metrics treated as NULL</strong> — GA API can return empty strings for metrics with no data; expects <code>passed = true</code>, same behavior as NULL.</li>
+  <li><strong>Boundary values pass, just-past boundary fails</strong> — two cases: metrics exactly at threshold pass; metrics at threshold +/- 0.1 fail all three.</li>
+</ul>
+
+<h4><code>GoogleAnalyticsHooksPresaveTest</code> — 7 test cases</h4>
+
+<p>File: <code>tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php</code></p>
+
+<p>The test constructs <code>GoogleAnalyticsHooks</code> directly via constructor injection, passing mocks for all nine dependencies: <code>GoogleAnalyticsCronService</code>, <code>BenchmarkEvaluator</code>, <code>plugin.manager.ai_agents</code>, <code>plugin.manager.mail</code>, <code>config.factory</code>, <code>current_user</code>, <code>logger.factory</code>, <code>state</code>, and <code>request_stack</code>. Each test case configures the mocks to exercise a specific branch.</p>
+
+<ul>
+  <li><strong>Unchanged metrics skip evaluation</strong> — entity original has identical GA field values; <code>BenchmarkEvaluator::evaluate()</code> is never called, state is untouched.</li>
+  <li><strong>Passing benchmarks clear stale state</strong> — evaluator returns <code>passed = true</code>; the hook calls <code>StateInterface::delete()</code> to remove any previously set flagged state.</li>
+  <li><strong>Failing benchmarks call agent and update state</strong> — evaluator returns <code>passed = false</code>; the hook retrieves the AI agent plugin, calls it for a summary, and calls <code>StateInterface::set()</code> with the result.</li>
+  <li><strong>Agent failure falls back to deterministic text</strong> — evaluator returns <code>passed = false</code>, agent plugin throws an exception; the hook catches it, falls back to the <code>failures</code> array from the evaluator, and still calls <code>StateInterface::set()</code> with the fallback content.</li>
+  <li><strong>Non-Canvas-page entities are skipped</strong> — entity bundle is not <code>canvas_page</code>; <code>BenchmarkEvaluator::evaluate()</code> is never called.</li>
+  <li><strong>New entities (no original) are skipped</strong> — entity has no <code>original</code> property; the hook exits early before evaluation.</li>
+  <li><strong>Entity delete clears state</strong> — <code>hook_entity_delete()</code> is called with a <code>canvas_page</code> entity; <code>StateInterface::delete()</code> is called with the correct state key.</li>
+</ul>
+
+<h3>Files added</h3>
+
+<ul>
+  <li><code>tests/src/Unit/BenchmarkEvaluatorTest.php</code></li>
+  <li><code>tests/src/Unit/GoogleAnalyticsHooksPresaveTest.php</code></li>
+</ul>
+
+<h3>Running the tests</h3>
+
+<pre><code>phpunit --group=ai_google_analytics</code></pre>
+
+<p>Or with DDEV:</p>
+
+<pre><code>ddev exec phpunit web/modules/custom/ai_google_analytics/tests --group=ai_google_analytics</code></pre>
+
+<p>Both test classes use <code>UnitTestCase</code> with no database or container bootstrap. They run in under 100ms.</p>
+
+<h3>Remaining tasks</h3>
+
+<ul>
+  <li>Merge the companion architecture refactor issue first</li>
+  <li>Maintainer review of test coverage and assertions</li>
+  <li>Any requested changes addressed</li>
+  <li>Merge</li>
+</ul>
+
+<h3>Patch</h3>
+
+<p>Patch file: <code>mr2-deterministic-benchmarks-tests.patch</code></p>
+
+</body>
+</html>

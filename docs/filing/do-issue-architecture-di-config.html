@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Refactor to service architecture with dependency injection, config schema, and packaging</title>
+</head>
+<body>
+
+<h3>Problem statement</h3>
+
+<p>The initial commit of <code>ai_google_analytics</code> ships working code, but the module's architecture does not yet meet Drupal contrib standards in several areas:</p>
+
+<ul>
+  <li>All cron logic lives as procedural code in <code>ai_google_analytics.module</code> with static <code>\Drupal::</code> calls, no error handling, and a loop bug where only the last monitored page's data is ever saved.</li>
+  <li><code>hook_cron()</code> and <code>hook_mail()</code> remain as procedural functions in the <code>.module</code> file rather than using the <code>#[Hook]</code> attribute pattern already established by the module's other hook classes.</li>
+  <li>The presave hook calls an AI agent to decide whether a Canvas page passes performance benchmarks, then regex-parses JSON from free-form LLM output to make a binary pass/fail decision. This makes the core behavioral decision non-deterministic, untestable, and fragile to LLM output variation.</li>
+  <li>Hook classes use static <code>\Drupal::</code> calls throughout instead of constructor-injected services.</li>
+  <li>No <code>*.services.yml</code> — hook classes are not registered as services, making DI impossible and mocking in tests impractical.</li>
+  <li>No config schema (<code>config/schema/</code>) and no default config (<code>config/install/ai_google_analytics.settings.yml</code>), so <code>drush config:inspect</code> reports a missing schema and no config object exists until the settings form is saved.</li>
+  <li>The <code>GoogleAnalytics</code> <code>AiFunctionCall</code> plugin is missing the <code>plugin.manager.ai_data_type_converter</code> argument in its <code>::create()</code> method (the parent <code>FunctionCallBase::create()</code> passes this, but the override omits it). It also has no credential validation, no property ID guard, no try/catch, and uses a static <code>\Drupal::logger()</code> call instead of an injected logger — any misconfiguration throws an unhandled exception during an AI agent session.</li>
+  <li>No <code>composer.json</code>, so the module cannot be packaged for drupal.org.</li>
+  <li>No <code>README.md</code>.</li>
+  <li>A critical security issue: the service account credentials JSON is uploaded to <code>public://</code>, making it publicly downloadable.</li>
+  <li>The helper function <code>get_monitored_pages()</code> is unprefixed, violating Drupal's global namespace rules.</li>
+  <li>The agent config for <code>analytics_monitoring_agent</code> declares no module dependencies (it references <code>ai_context</code> tools but does not declare <code>ai_context</code> as a dependency) and uses an overly complex structured output schema that is never consumed by any code.</li>
+  <li>No <code>hook_uninstall()</code> — the module's state entries (<code>ai_google_analytics.context_data</code>) persist after uninstall.</li>
+</ul>
+
+<h3>Steps to reproduce</h3>
+
+<ul>
+  <li>Install the module on a Drupal CMS 2.0 / Drupal 11 site.</li>
+  <li>Run <code>drush config:inspect ai_google_analytics.settings</code> — reports missing schema.</li>
+  <li>Configure a service account and run cron with multiple monitored Canvas pages — only the last page receives GA data.</li>
+  <li>Open a page in the Canvas editor and trigger a presave — if the LLM returns output in an unexpected format, the pass/fail decision silently misbehaves.</li>
+  <li>Check the uploaded credentials file location — it is stored under <code>public://</code> and accessible without authentication.</li>
+  <li>Uninstall the module — state entries remain in the database.</li>
+</ul>
+
+<h3>Proposed resolution</h3>
+
+<p>This merge request addresses the issues above through a coordinated set of changes. The changes fall into seven areas:</p>
+
+<h4>1. Extract cron logic to <code>GoogleAnalyticsCronService</code></h4>
+
+<p>All GA API logic is moved from the procedural <code>ai_google_analytics_cron()</code> function into a new injectable service (<code>src/GoogleAnalyticsCronService.php</code>). The service receives <code>config.factory</code>, <code>entity_type.manager</code>, <code>file_system</code>, <code>logger.factory</code>, and <code>path_alias.manager</code> via constructor injection. Client instantiation and per-page API calls are each wrapped in <code>try/catch</code> — a single credential error or API failure no longer aborts the entire cron run. The cron loop bug (save outside the loop) and the early <code>return</code> (should be <code>continue</code>) are fixed.</p>
+
+<h4>2. Migrate all procedural hooks to OOP with <code>#[Hook]</code> attributes</h4>
+
+<p><code>hook_cron()</code> and <code>hook_mail()</code> are moved from the <code>.module</code> file into <code>GoogleAnalyticsHooks</code> using <code>#[Hook]</code> attributes, matching the pattern already used by the module's other hook implementations. <code>GoogleAnalyticsCronService</code> is injected into <code>GoogleAnalyticsHooks</code> via constructor, making <code>hook_cron()</code> a one-liner delegation. The <code>.module</code> file is reduced to just the <code>@file</code> docblock.</p>
+
+<h4>3. Replace non-deterministic LLM pass/fail with <code>BenchmarkEvaluator</code></h4>
+
+<p>A new <code>src/BenchmarkEvaluator.php</code> service performs deterministic PHP comparison of GA metrics against configurable thresholds. Three global thresholds (<code>engaged_sessions_min</code>, <code>bounce_rate_max</code>, <code>key_event_rate_min</code>) are stored in config and editable via the settings form. Three nullable float base fields on <code>canvas_page</code> entities allow per-page overrides (NULL means use the global default). The evaluator returns <code>['passed' =&gt; bool, 'failures' =&gt; string[]]</code> with no AI involvement.</p>
+
+<p>The presave hook now calls <code>BenchmarkEvaluator::evaluate()</code> for the pass/fail decision and calls the AI agent <em>only when a page has already failed</em>, to generate a human-readable summary for editors. Agent failure falls back to the deterministic failure descriptions, so an LLM outage never crashes an editor session. Passing pages clear any previously set flagged state (fixing a stale-state bug in the original).</p>
+
+<h4>4. Introduce <code>ai_google_analytics.services.yml</code> with full DI</h4>
+
+<p>All hook classes and new services are registered in <code>ai_google_analytics.services.yml</code>. <code>GoogleAnalyticsHooks</code> receives nine constructor-injected services: <code>GoogleAnalyticsCronService</code>, <code>BenchmarkEvaluator</code>, <code>plugin.manager.ai_agents</code>, <code>plugin.manager.mail</code>, <code>config.factory</code>, <code>current_user</code>, <code>logger.factory</code>, <code>state</code>, and <code>request_stack</code>. All static <code>\Drupal::</code> calls in OOP classes are removed.</p>
+
+<h4>5. Add config schema and default settings</h4>
+
+<p>A new <code>config/schema/ai_google_analytics.schema.yml</code> defines the schema for <code>ai_google_analytics.settings</code> including the three benchmark threshold keys. A new <code>config/install/ai_google_analytics.settings.yml</code> provides empty defaults so the config object exists immediately after install. The settings form is updated to expose the benchmark thresholds.</p>
+
+<h4>6. Harden the <code>GoogleAnalytics</code> AiFunctionCall plugin and fix remaining issues</h4>
+
+<ul>
+  <li>Added the missing <code>plugin.manager.ai_data_type_converter</code> argument to <code>::create()</code> to match the parent <code>FunctionCallBase</code> constructor signature.</li>
+  <li>Replaced the static <code>\Drupal::logger()</code> call with an injected <code>LoggerInterface</code> property.</li>
+  <li>Early returns with descriptive messages for missing credentials, missing credentials file, and missing property ID.</li>
+  <li>The entire GA API call is wrapped in <code>try/catch</code> — errors are logged via the injected logger and a generic message is returned as tool output, rather than leaking exception details or throwing during an agent session.</li>
+  <li>Credentials upload location changed from <code>public://</code> to <code>private://</code> (security fix).</li>
+  <li><code>get_monitored_pages()</code> renamed to <code>ai_google_analytics_get_monitored_pages()</code>.</li>
+  <li><code>declare(strict_types=1)</code> added to all files that were missing it.</li>
+  <li>Opening brace style corrected on class declarations to match Drupal coding standards.</li>
+  <li>Docblocks added to all classes and public methods.</li>
+  <li>The redundant <code>\Drupal::state()-&gt;delete()</code> immediately before <code>-&gt;set()</code> on the same key is removed.</li>
+  <li>A <code>hook_entity_delete()</code> implementation is added to clean up <code>ai_google_analytics.context_data</code> state when a Canvas page is deleted, preventing orphaned entries in the review UI.</li>
+  <li>A <code>hook_uninstall()</code> implementation is added to remove the module's state entries on uninstall.</li>
+  <li>An install hook (<code>hook_update_N</code> 10001) installs the three per-page benchmark float fields on existing <code>canvas_page</code> entities via <code>entityDefinitionUpdateManager</code>.</li>
+</ul>
+
+<h4>7. Update agent config, declare dependencies, and add packaging files</h4>
+
+<ul>
+  <li>The <code>analytics_monitoring_agent</code> config is updated to scope the agent to a summary-only role (it no longer evaluates pass/fail), <code>structured_output_enabled</code> is set to true, the schema is simplified to <code>{summary: string, recommendations: string}</code>, and the missing <code>ai_context</code> module dependency is declared.</li>
+  <li>The module <code>.info.yml</code> now declares <code>ai_context:ai_context</code> as a dependency, since the agent config references <code>ai_context</code> tools.</li>
+  <li>Library renamed from <code>canvas_ai_init</code> to <code>ai_panel_bridge</code> for clarity.</li>
+  <li>Module <code>info.yml</code> updated: description expanded, <code>configure</code> key added, <code>canvas:canvas</code> dependency added.</li>
+  <li><code>composer.json</code> added with dependencies on <code>drupal/ai</code>, <code>drupal/ai_agents</code>, <code>drupal/canvas</code>, and <code>google/analytics-data</code>.</li>
+  <li><code>README.md</code> added documenting the cron flow, presave agent trigger, review page, function call plugin, requirements, installation, and configuration.</li>
+</ul>
+
+<h3>PHPCS / PHPStan status</h3>
+
+<p>PHPCS (Drupal + DrupalPractice): 0 errors. 4 warnings remain — two <code>File::load</code> calls in the settings form (inherited from the original code) and two <code>t()</code>-with-variable warnings in the install file. Neither is a blocking issue.</p>
+
+<h3>Dependency note</h3>
+
+<p>The companion issue "Add unit tests for BenchmarkEvaluator and presave hook logic" is stacked on top of this merge request. The test files depend on <code>BenchmarkEvaluator</code> and the refactored <code>GoogleAnalyticsHooks</code> introduced here. Please merge this issue first.</p>
+
+<h3>Remaining tasks</h3>
+
+<ul>
+  <li>Maintainer review</li>
+  <li>Any requested changes addressed</li>
+  <li>Merge</li>
+  <li>Merge the companion unit tests issue after this is merged</li>
+</ul>
+
+<h3>Patch</h3>
+
+<p>Patch file: <code>mr1-architecture-di-config.patch</code></p>
+
+</body>
+</html>
