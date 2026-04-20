@@ -281,7 +281,7 @@ class GoogleAnalyticsHooks {
     $params = [
       'subject' => 'Underperforming Content Detected',
       'message' => '<p>Your Analytics Monitoring Agent has identified content that does not meet your analytics goals.</p>'
-        . '<p>For details, please visit the <a href="' . $base_url . '/admin/content/ga-page-review">AI Analytics Review</a> page.</p>',
+      . '<p>For details, please visit the <a href="' . $base_url . '/admin/content/ga-page-review">AI Analytics Review</a> page.</p>',
     ];
     $langcode = $this->currentUser->getPreferredLangcode();
     $mail_result = $this->mailManager->mail('ai_google_analytics', 'content_performance_report', $to, $langcode, $params);

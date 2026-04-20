@@ -219,10 +219,19 @@ class GoogleAnalyticsHooksPresaveTest extends UnitTestCase {
     // Mock agent returning structured output via anonymous class.
     $mockAgent = new class {
 
+      /**
+       * {@inheritdoc}
+       */
       public function setChatInput($input): void {}
 
+      /**
+       * {@inheritdoc}
+       */
       public function determineSolvability(): void {}
 
+      /**
+       * {@inheritdoc}
+       */
       public function solve(): string {
         return '{"summary": "High bounce rate detected", "recommendations": "Improve page load time"}';
       }

@@ -10,6 +10,7 @@ use Drupal\ai\Service\FunctionCalling\ExecutableFunctionCallInterface;
 use Drupal\ai\Service\FunctionCalling\FunctionCallInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\File\FileSystemInterface;
+use Psr\Log\LoggerInterface;
 use Drupal\Core\Plugin\Context\ContextDefinition;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Google\Analytics\Data\V1beta\Client\BetaAnalyticsDataClient;
@@ -56,6 +57,11 @@ class GoogleAnalytics extends FunctionCallBase implements ExecutableFunctionCall
   protected FileSystemInterface $fileSystem;
 
   /**
+   * The logger channel.
+   */
+  protected LoggerInterface $logger;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition): FunctionCallInterface|static {
@@ -68,6 +74,7 @@ class GoogleAnalytics extends FunctionCallBase implements ExecutableFunctionCall
     );
     $instance->configFactory = $container->get('config.factory');
     $instance->fileSystem = $container->get('file_system');
+    $instance->logger = $container->get('logger.factory')->get('ai_google_analytics');
     return $instance;
   }
 
@@ -156,7 +163,7 @@ class GoogleAnalytics extends FunctionCallBase implements ExecutableFunctionCall
       $this->setOutput((string) json_encode($output, JSON_UNESCAPED_SLASHES));
     }
     catch (\Throwable $e) {
-      \Drupal::logger('ai_google_analytics')->error('GA API error: @message', ['@message' => $e->getMessage()]);
+      $this->logger->error('GA API error: @message', ['@message' => $e->getMessage()]);
       $this->setOutput('Failed to fetch Google Analytics data. Check the site logs for details.');
     }
   }
