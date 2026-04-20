@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drupal.org Comments — April 18, 2026</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #f8f9fa; color: #333; }
+  h1 { border-bottom: 3px solid #0678be; padding-bottom: 12px; }
+  .comment-block { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 24px; margin: 24px 0; position: relative; }
+  .comment-block h2 { margin-top: 0; color: #0678be; }
+  .meta { background: #e8f4fd; padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; font-size: 0.9em; }
+  .meta strong { color: #0678be; }
+  .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px 16px; margin: 12px 0; border-radius: 0 4px 4px 0; }
+  .danger { background: #f8d7da; border-left: 4px solid #dc3545; padding: 12px 16px; margin: 12px 0; border-radius: 0 4px 4px 0; }
+  .success { background: #d4edda; border-left: 4px solid #28a745; padding: 12px 16px; margin: 12px 0; border-radius: 0 4px 4px 0; }
+  .comment-text { background: #f5f5f5; padding: 16px 20px; border-radius: 4px; font-family: Georgia, 'Times New Roman', serif; line-height: 1.6; white-space: pre-wrap; }
+  .issue-text { background: #f5f5f5; padding: 16px 20px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; }
+  .issue-text h3 { color: #333; margin-top: 20px; margin-bottom: 8px; }
+  .issue-text h3:first-child { margin-top: 0; }
+  .issue-text h4 { color: #555; margin-top: 16px; margin-bottom: 6px; }
+  .issue-text ul { margin: 8px 0; padding-left: 24px; }
+  .issue-text li { margin: 4px 0; }
+  .issue-text p { margin: 8px 0; }
+  .copy-btn { position: absolute; top: 16px; right: 16px; background: #0678be; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+  .copy-btn:hover { background: #045a8d; }
+  .copy-btn.copied { background: #28a745; }
+  .toc { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px 24px; margin: 24px 0; }
+  .toc ol { margin: 8px 0; }
+  .toc li { margin: 6px 0; }
+  .toc a { color: #0678be; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  code { background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+  .priority-high { border-left: 4px solid #dc3545; }
+  .priority-med { border-left: 4px solid #ffc107; }
+  .priority-low { border-left: 4px solid #28a745; }
+  .attachment-note { background: #e2e3e5; padding: 10px 14px; border-radius: 4px; margin-top: 12px; font-size: 0.9em; }
+</style>
+<script>
+function copyComment(id) {
+  const el = document.getElementById(id);
+  const isHtml = el.classList.contains('issue-text');
+  const content = isHtml ? el.innerHTML.trim() : el.innerText;
+  if (isHtml) {
+    navigator.clipboard.write([new ClipboardItem({
+      'text/html': new Blob([content], {type: 'text/html'}),
+      'text/plain': new Blob([content], {type: 'text/plain'})
+    })]).then(onCopied);
+  } else {
+    navigator.clipboard.writeText(content).then(onCopied);
+  }
+  function onCopied() {
+    const btn = el.closest('.comment-block').querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = isHtml ? 'Copy HTML' : 'Copy Text'; btn.classList.remove('copied'); }, 2000);
+  }
+}
+</script>
+</head>
+<body>
+
+<h1>Drupal.org Comments Ready to Post</h1>
+<p><strong>Date:</strong> April 18, 2026 &nbsp;|&nbsp; <strong>Branch:</strong> feat/ai-google-analytics-mr &nbsp;|&nbsp; <strong>Plan:</strong> docs/plans/2026-04-18-drupal-org-response-strategy.md</p>
+
+<div class="toc">
+<h3>Table of Contents</h3>
+<ol>
+  <li><a href="#comment-1">ai_context [#3582288] — MR !114 Rebase Status</a> <span style="color:green">(ready now)</span></li>
+  <li><a href="#comment-2">canvas [#3583357] — Postponed on [#3549232]</a> <span style="color:green">(ready now)</span></li>
+  <li><a href="#comment-3">canvas [#3545816] — All Changes Now Upstream</a> <span style="color:green">(ready now — verified against 1.2.0)</span></li>
+  <li><a href="#comment-4">canvas [#3584087] — Architecture Review Engagement</a> <span style="color:red">(48h cool-off: human review required)</span></li>
+  <li><a href="#comment-5" style="color:#999;">ai [#3585202] — Skills Mirroring</a> <span style="color:red">(SKIP — issue closed, proposal rejected)</span></li>
+  <li><a href="#comment-6">ai [#3585053] — Agent Runner Resume State</a> <span style="color:green">(ready now)</span></li>
+  <li><a href="#issue-7">ai_google_analytics — Architecture Refactor (new issue + MR)</a> <span style="color:green">(ready now — PHPCS clean, 15 tests green)</span></li>
+  <li><a href="#issue-8">ai_google_analytics — Unit Tests (new issue + MR)</a> <span style="color:green">(ready now — stacked on #7)</span></li>
+</ol>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMMENT 1: ai_context #3582288 -->
+<!-- ============================================================ -->
+
+<div id="comment-1" class="comment-block priority-low">
+<button class="copy-btn" onclick="copyComment('text-3582288')">Copy Text</button>
+<h2>1. ai_context [#3582288] — MR !114 Rebase Status</h2>
+
+<div class="meta">
+  <strong>Issue:</strong> <a href="https://www.drupal.org/project/ai_context/issues/3582288">SystemPromptSubscriber re-injects full context on every agent loop iteration</a><br>
+  <strong>Set status to:</strong> No change (status update only)<br>
+  <strong>Attachments:</strong> None<br>
+  <strong>Risk:</strong> Zero — Kristin Pol already approved the rebase<br>
+  <strong>Pre-check:</strong> Verify MR !114 CI is still green before posting
+</div>
+
+<div class="success">Action 1.2 — Post immediately. Establishes us as active, responsive contributors.</div>
+
+<div id="text-3582288" class="comment-text">Rebased the MR on current 1.0.x HEAD (79c00cd). The [#3574359] refactor made several changes that affected the original patch:
+
+- SystemPromptSubscriber renamed to AiContextSystemPromptSubscriber
+- excluded_subcontext renamed to never_include
+- New AiContextRequestFactory / AiContextSelector API replaced select($prompt, $agentId)
+- Form line numbers shifted
+
+Updated all three production files and the kernel test (renamed to AiContextSystemPromptSubscriberLoopAwareTest to match). Functional behavior is identical: same loop_aware boolean, same early return on loop > 0, same 7 test cases.
+
+Previous commits are tagged at previous/3582288-loop-aware-context-injection/2026-04-07 if anyone needs to compare.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMMENT 2: canvas #3583357 -->
+<!-- ============================================================ -->
+
+<div id="comment-2" class="comment-block priority-low">
+<button class="copy-btn" onclick="copyComment('text-3583357')">Copy Text</button>
+<h2>2. canvas [#3583357] — Postponed on [#3549232]</h2>
+
+<div class="meta">
+  <strong>Issue:</strong> <a href="https://www.drupal.org/project/canvas/issues/3583357">Canvas deterministic edit controller</a><br>
+  <strong>Set status to:</strong> Postponed (blocker: [#3549232])<br>
+  <strong>Attachments:</strong> None<br>
+  <strong>Risk:</strong> Low — makes the dependency chain visible
+</div>
+
+<div class="success">Action 2.3 — Post immediately alongside Comment 1.</div>
+
+<div id="text-3583357" class="comment-text">Heads-up: this MR is blocked on [#3549232].
+
+CI fails because the deterministic edit controller calls helper methods that don't exist upstream yet — they're introduced by [#3549232] / MR !581. Specifically:
+
+- AiResponseValidator::validateComponentExistsInPage()
+- AiResponseValidator::validateComponentPropUpdate()
+- CanvasAiPageBuilderHelper::populateMediaPropIfNeeded()
+- CanvasAiPageBuilderHelper::includeUpdateOperations()
+- CanvasAiTempStore::COMPONENTS_IN_PAGE_WITH_PROP_VALUES_KEY
+
+Marking postponed. Will rebase once !581 lands. Happy to inline the logic temporarily if a self-contained MR is preferred.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMMENT 3: canvas #3545816 -->
+<!-- ============================================================ -->
+
+<div id="comment-3" class="comment-block priority-low">
+<button class="copy-btn" onclick="copyComment('text-3545816')">Copy Text</button>
+<h2>3. canvas [#3545816] — All Changes Now Upstream</h2>
+
+<div class="meta">
+  <strong>Issue:</strong> <a href="https://www.drupal.org/project/canvas/issues/3545816">Simple approach to bringing advanced metadata into Canvas AI</a><br>
+  <strong>Set status to:</strong> Fixed (or confirm already fixed)<br>
+  <strong>Attachments:</strong> None<br>
+  <strong>Risk:</strong> Low — confirming upstream work, not proposing changes
+</div>
+
+<div class="success"><strong>UPDATED after 1.2.0 verification.</strong> All 8 hunks from the combined patch are now upstream. No patch needed. This comment confirms the issue can be closed, which unblocks [#3549232] and [#3583357].</div>
+
+<div id="text-3545816" class="comment-text">I had been carrying a local rebase of MR !719 for a demo site. Before posting it, I verified against current Canvas 1.x HEAD and found that the functionality from this issue has been implemented upstream — likely through other MRs, since the API details differ from !719's approach. MR !719 appears to no longer be needed.
+
+Specifically, all of these are now in Canvas 1.2.0:
+
+- CanvasAiComponentContextHelper (method renamed to getLessDetailedComponentContext)
+- GetMetadataOfComponents plugin (present, slightly different error handling)
+- CanvasAiPageBuilderHelper subrequest removal + array return type
+- CanvasAiComponentDescriptionSettingsForm detailed_description field
+- GetComponentContext switched to CanvasAiComponentContextHelper
+- canvas_ai.services.yml context_helper registration
+- Agent config with get_metadata_of_components tool
+
+One minor difference: upstream getDetailedMetadataOfComponents() silently skips unrecognized component IDs, where !719 threw \InvalidArgumentException.
+
+If the maintainers agree this is resolved, marking Fixed would unblock [#3549232] and downstream [#3583357].</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMMENT 4: canvas #3584087 — Architecture Review -->
+<!-- ============================================================ -->
+
+<div id="comment-4" class="comment-block priority-high">
+<button class="copy-btn" onclick="copyComment('text-3584087')">Copy Text</button>
+<h2>4. canvas [#3584087] — Architecture Review Engagement</h2>
+
+<div class="meta">
+  <strong>Issue:</strong> <a href="https://www.drupal.org/project/canvas/issues/3584087">[Discuss] Canvas AI: Review the current architecture</a><br>
+  <strong>Set status to:</strong> No change (discussion comment)<br>
+  <strong>Attachments:</strong> None<br>
+  <strong>Risk:</strong> High — highest-leverage comment in the plan. Must not read as AI-generated.
+</div>
+
+<div class="danger"><strong>Action 1.3 — 48-hour cool-off required.</strong> This comment needs TWO human review passes: (1) technical accuracy on Day 2-3, (2) voice/tone after cool-off on Day 3-4. Do not post before both reviews are complete. The thread has only one substantive comment (d34dman, April 14) — no rush, but should post within 7 days.</div>
+
+<div class="warning"><strong>Framing guidance (per core-team-review):</strong>
+<ul style="margin:4px 0">
+<li>Position as <em>supporting evidence for the direction this issue proposes</em>, not "here's the solution."</li>
+<li>Lead with 60% deterministic hit rate, not 430x speedup (the speedup compares unlike operations).</li>
+<li>Share profiling methodology so others can reproduce.</li>
+<li>QED42 filed this issue — do not imply they need outside help solving it.</li>
+<li>Reference d34dman's "slim context aggressively" and "predictable identifiers" points as aligned.</li>
+</ul>
+</div>
+
+<div id="text-3584087" class="comment-text">I've been profiling Canvas AI on a demo site and ran into the same architectural concerns described here. Sharing some measurements in case they're useful for prioritizing the improvements.
+
+Setup: 15-component Canvas page, 8 ai_context items configured, Anthropic provider. Instrumented the full agent loop to measure token usage, latency, and call counts per edit type.
+
+Findings:
+
+1. Context re-injection is the largest single cost. On a multi-loop agent (e.g. page_builder running 3 loops), the full ai_context block re-appends on every BuildSystemPromptEvent dispatch. On a 15-component page, that's roughly 52% of total tokens spent on content the model has already seen. [#3582288] on ai_context adds a loop_aware flag that skips re-injection on loop > 0. MR !114 is in review.
+
+2. Most common edits don't need the LLM at all. Categorizing 6 weeks of edits from the demo site, approximately 60% resolve to deterministic prop updates — changing a heading, swapping a color token, toggling visibility. These are pattern-matchable without an LLM call. A working prototype with 52 kernel tests handles these deterministically, falling back to the AI pipeline for the remaining 40% (layout changes, content generation, multi-component operations).
+
+3. The orchestrator context problem scales with page size. On a 15-component page, a single heading edit sends roughly 111K tokens through the full pipeline. The orchestrator passes the user's input to the sub-agent, which re-fetches page state and context independently. Scoping context to the affected region (rather than full layout) reduced the payload by about 79% in testing.
+
+These observations align with both the proposed directions here and @d34dman's points about slimming context aggressively and making actions atomic. The "predictable identifiers" pattern d34dman describes maps well to the component instance IDs that Canvas already assigns — those are stable enough to reference across planning and execution steps without round-trips.
+
+Profiling methodology: token counts via provider API response metadata, latency via PHP microtime around the AgentRunner call, N=5 runs per edit type with median reported. Happy to share the benchmark scripts or detailed per-operation breakdowns if that would help the discussion.
+
+Disclosure: AI tools assisted development of the prototype; architecture and testing were human-directed.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMMENT 5: ai #3585202 — Skills Mirroring -->
+<!-- ============================================================ -->
+
+<div id="comment-5" class="comment-block" style="opacity:0.6;">
+<h2 style="color:#999;">5. ai [#3585202] — Skills Mirroring <span style="color:#dc3545;">(SKIP — issue closed)</span></h2>
+
+<div class="danger"><strong>Do not post.</strong> Kristin Pol noted this was a DISCUSSION issue — it was discussed, and the decision is to not move forward with GitHub mirroring. Posting support for a rejected proposal would be tone-deaf.</div>
+
+<div class="meta">
+  <strong>Impact on strategy:</strong> Skills contributions go directly to <code>ai_best_practices</code> on drupal.org, not through a GitHub mirror. The contribution path is unchanged — submit MRs to ai_best_practices. The format questions (companion files, validation, contribution guide) should be asked on <a href="https://www.drupal.org/project/ai_best_practices">ai_best_practices</a> issues directly, not on this closed discussion.
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMMENT 6: ai #3585053 — Resume State -->
+<!-- ============================================================ -->
+
+<div id="comment-6" class="comment-block priority-low">
+<button class="copy-btn" onclick="copyComment('text-3585053')">Copy Text</button>
+<h2>6. ai [#3585053] — Agent Runner Resume State</h2>
+
+<div class="meta">
+  <strong>Issue:</strong> <a href="https://www.drupal.org/project/ai/issues/3585053">AI agent runner resume state</a><br>
+  <strong>Set status to:</strong> No change (confirming the bug)<br>
+  <strong>Attachments:</strong> None<br>
+  <strong>Risk:</strong> Low — confirming a reported bug with additional context
+</div>
+
+<div class="success">Tier 2 — Post alongside Comment 5. Short confirmation adds signal without overstepping.</div>
+
+<div id="text-3585053" class="comment-text">Can confirm this behavior. When the AgentRunner resumes from tempstore, the new user message is not injected into the conversation — the agent continues from its prior state without seeing the latest input.
+
+This shows up in the Canvas AI page builder flow where multi-turn agent conversations lose track of follow-up edits. Related to the broader context management issues being discussed in [#3584087] and the loop-aware context injection in [#3582288].
+
+MR !1515 looks like the right approach. Happy to test against a local setup if that would help.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ISSUE 7: ai_google_analytics — Architecture Refactor -->
+<!-- ============================================================ -->
+
+<div id="issue-7" class="comment-block priority-med">
+<button class="copy-btn" onclick="copyComment('text-issue-7')">Copy HTML</button>
+<h2>7. ai_google_analytics — Refactor to Service Architecture with DI, Config Schema, and Packaging</h2>
+
+<div class="meta">
+  <strong>Project:</strong> <a href="https://www.drupal.org/project/ai_google_analytics">ai_google_analytics</a><br>
+  <strong>Action:</strong> Create new issue + merge request on <code>architecture-di-config</code> branch<br>
+  <strong>Attachments:</strong> <code>mr1-architecture-di-config.patch</code><br>
+  <strong>Risk:</strong> Medium — large refactor touching 17+ files. Well-tested but needs maintainer buy-in.<br>
+  <strong>Pre-check:</strong> Verify push access to ai_google_analytics d.o. repo. PHPCS: 0 errors. PHPUnit: 15/15 green.
+</div>
+
+<div class="success">Ready to file. PHPCS clean (0 errors, 4 non-blocking warnings). All 15 unit tests pass. d.o. repo branch synced and up to date.</div>
+
+<div class="warning"><strong>Filing note:</strong> This is a <em>new issue</em>, not a comment on an existing one. Create the issue first, then push the <code>architecture-di-config</code> branch as a merge request against <code>1.0.x</code>. The companion test issue (#8 below) depends on this — file and note the dependency.</div>
+
+<div id="text-issue-7" class="issue-text"><h3>Problem statement</h3>
+
+<p>The initial commit ships working code, but the module's architecture does not yet meet Drupal contrib standards in several areas:</p>
+
+<ul>
+  <li>All cron logic lives as procedural code in the <code>.module</code> file with static <code>\Drupal::</code> calls, no error handling, and a loop bug where only the last monitored page's data is ever saved.</li>
+  <li><code>hook_cron()</code> and <code>hook_mail()</code> remain as procedural functions rather than using the <code>#[Hook]</code> attribute pattern already established by the module's other hook classes.</li>
+  <li>The presave hook calls an AI agent to decide whether a Canvas page passes performance benchmarks, then regex-parses JSON from free-form LLM output to make the pass/fail decision. This makes the core behavioral decision non-deterministic, untestable, and fragile to LLM output variation.</li>
+  <li>Hook classes use static <code>\Drupal::</code> calls instead of constructor-injected services.</li>
+  <li>No <code>*.services.yml</code> — hook classes are not registered as services.</li>
+  <li>No config schema and no default config, so <code>drush config:inspect</code> reports a missing schema.</li>
+  <li>The <code>GoogleAnalytics</code> <code>AiFunctionCall</code> plugin is missing the <code>plugin.manager.ai_data_type_converter</code> argument in <code>::create()</code> (the parent <code>FunctionCallBase::create()</code> passes this but the override omits it). It also has no credential validation, no try/catch, and uses a static <code>\Drupal::logger()</code> call instead of an injected logger.</li>
+  <li>No <code>composer.json</code> for drupal.org packaging.</li>
+  <li>The service account credentials JSON is uploaded to <code>public://</code>, making it publicly downloadable.</li>
+  <li>The helper function <code>get_monitored_pages()</code> is unprefixed.</li>
+  <li>The agent config references <code>ai_context</code> tools but does not declare <code>ai_context</code> as a dependency.</li>
+  <li>No <code>hook_uninstall()</code> — state entries persist after uninstall.</li>
+</ul>
+
+<h3>Steps to reproduce</h3>
+
+<ul>
+  <li>Install the module on a Drupal CMS 2.0 / Drupal 11 site.</li>
+  <li>Run <code>drush config:inspect ai_google_analytics.settings</code> — reports missing schema.</li>
+  <li>Configure a service account and run cron with multiple monitored Canvas pages — only the last page receives GA data.</li>
+  <li>Trigger a presave with the LLM returning unexpected output format — pass/fail decision silently misbehaves.</li>
+  <li>Check the uploaded credentials file — stored under <code>public://</code> and accessible without authentication.</li>
+</ul>
+
+<h3>Proposed resolution</h3>
+
+<p>This merge request addresses the issues through seven areas of changes:</p>
+
+<p><strong>1. Extract cron logic to <code>GoogleAnalyticsCronService</code></strong> — new injectable service with try/catch per page, fixes the cron loop bug.</p>
+
+<p><strong>2. Migrate all procedural hooks to OOP</strong> — <code>hook_cron()</code> and <code>hook_mail()</code> moved from <code>.module</code> to <code>GoogleAnalyticsHooks</code> with <code>#[Hook]</code> attributes. The <code>.module</code> file is reduced to just the <code>@file</code> docblock.</p>
+
+<p><strong>3. Replace non-deterministic LLM pass/fail with <code>BenchmarkEvaluator</code></strong> — deterministic PHP comparison against configurable thresholds. Three global thresholds in config, three nullable float base fields for per-page overrides. The AI agent is called only when a page has already failed, to generate a human-readable summary. Agent failure falls back to deterministic failure text.</p>
+
+<p><strong>4. Introduce <code>ai_google_analytics.services.yml</code> with full DI</strong> — <code>GoogleAnalyticsHooks</code> receives nine constructor-injected services. All static <code>\Drupal::</code> calls in OOP classes removed.</p>
+
+<p><strong>5. Add config schema and default settings.</strong></p>
+
+<p><strong>6. Harden the <code>GoogleAnalytics</code> AiFunctionCall plugin</strong> — add missing <code>plugin.manager.ai_data_type_converter</code> argument, replace static <code>\Drupal::logger()</code> with injected <code>LoggerInterface</code>, add credential guards and try/catch, move credentials to <code>private://</code>, fix function prefix, add <code>strict_types</code>.</p>
+
+<p><strong>7. Update agent config and add packaging files</strong> — scope agent to summary-only role, enable structured output, declare <code>ai_context</code> dependency, add <code>composer.json</code> and <code>README.md</code>, add <code>hook_uninstall()</code> for state cleanup.</p>
+
+<p>PHPCS: 0 errors (4 non-blocking DrupalPractice warnings — <code>File::load</code> and <code>t()</code> variable).</p>
+
+<p>The companion issue "Add unit tests for BenchmarkEvaluator and presave hook logic" is stacked on this MR. Please merge [#3585742] first.</p></div>
+
+<div class="attachment-note"><strong>Attach:</strong> <code>docs/patches/mr1-architecture-di-config.patch</code></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ISSUE 8: ai_google_analytics — Unit Tests -->
+<!-- ============================================================ -->
+
+<div id="issue-8" class="comment-block priority-low">
+<button class="copy-btn" onclick="copyComment('text-issue-8')">Copy HTML</button>
+<h2>8. ai_google_analytics — Add Unit Tests for BenchmarkEvaluator and Presave Hook Logic</h2>
+
+<div class="meta">
+  <strong>Project:</strong> <a href="https://www.drupal.org/project/ai_google_analytics">ai_google_analytics</a><br>
+  <strong>Action:</strong> Create new issue + merge request on <code>deterministic-benchmarks-tests</code> branch<br>
+  <strong>Attachments:</strong> <code>mr2-deterministic-benchmarks-tests.patch</code><br>
+  <strong>Risk:</strong> Low — test-only change, no production code modified<br>
+  <strong>Dependency:</strong> Must be merged after issue #7 (architecture refactor)
+</div>
+
+<div class="success">Ready to file. All 15 tests pass (8 BenchmarkEvaluator + 7 presave hook), 66 assertions, under 100ms runtime.</div>
+
+<div id="text-issue-8" class="issue-text"><h3>Problem statement</h3>
+
+<p>The <code>ai_google_analytics</code> module has zero test coverage. The two most important code paths — benchmark threshold evaluation and the Canvas page presave hook — involve conditional branching, fallback behavior, and state management that are difficult to verify manually and easy to break during future changes.</p>
+
+<h3>Dependency</h3>
+
+<p>This issue depends on [#3585742] "Refactor to service architecture with dependency injection, config schema, and packaging". The test files mock <code>BenchmarkEvaluator</code> and construct <code>GoogleAnalyticsHooks</code> via constructor injection — both require that issue's changes. Please merge the architecture refactor first.</p>
+
+<h3>Proposed resolution</h3>
+
+<p>Two PHPUnit test files covering the <code>BenchmarkEvaluator</code> service and the presave/delete hook logic. Both use <code>UnitTestCase</code> (no Drupal bootstrap required) and are compatible with PHPUnit 11 and PHP 8.3+.</p>
+
+<h4><code>BenchmarkEvaluatorTest</code> — 8 test cases</h4>
+
+<ul>
+  <li>All benchmarks pass</li>
+  <li>All benchmarks fail</li>
+  <li>Single benchmark fails</li>
+  <li>Per-page override takes precedence (lenient)</li>
+  <li>Per-page override causes failure (stricter)</li>
+  <li>Empty metrics pass</li>
+  <li>Empty string metrics treated as NULL</li>
+  <li>Boundary values pass, just-past boundary fails</li>
+</ul>
+
+<h4><code>GoogleAnalyticsHooksPresaveTest</code> — 7 test cases</h4>
+
+<ul>
+  <li>Unchanged metrics skip evaluation</li>
+  <li>Passing benchmarks clear stale state</li>
+  <li>Failing benchmarks call agent and update state</li>
+  <li>Agent failure falls back to deterministic text</li>
+  <li>Non-Canvas-page entities are skipped</li>
+  <li>New entities (no original) are skipped</li>
+  <li>Entity delete clears state</li>
+</ul>
+
+<p>The test constructs <code>GoogleAnalyticsHooks</code> directly via constructor injection, passing mocks for all nine dependencies. Entity mocks use <code>stdClass</code> for field item lists rather than <code>FieldItemListInterface</code> mocks, because PHPUnit 11 does not support dynamic properties on interface mocks in PHP 8.3.</p>
+
+<h3>Running the tests</h3>
+
+<pre><code>phpunit --group=ai_google_analytics</code></pre></div>
+
+<div class="attachment-note"><strong>Attach:</strong> <code>docs/patches/mr2-deterministic-benchmarks-tests.patch</code></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SKILLS READINESS -->
+<!-- ============================================================ -->
+
+<div class="comment-block" style="background:#f0f0f0; border-color:#666;">
+<h2 style="color:#333;">Skills Contribution Readiness Assessment</h2>
+<p>Evaluated 5 Drupal skills against the <code>ai_best_practices</code> format requirements (SKILL.md, frontmatter, evals, ~150 line limit).</p>
+
+<table style="width:100%; border-collapse:collapse; margin:12px 0;">
+<thead>
+<tr style="background:#ddd;"><th style="padding:8px; text-align:left; border:1px solid #ccc;">Skill</th><th style="padding:8px; text-align:left; border:1px solid #ccc;">Lines</th><th style="padding:8px; text-align:left; border:1px solid #ccc;">Status</th><th style="padding:8px; text-align:left; border:1px solid #ccc;">Blockers</th></tr>
+</thead>
+<tbody>
+<tr><td style="padding:8px; border:1px solid #ccc;"><strong>drupal-security</strong></td><td style="padding:8px; border:1px solid #ccc;">~188</td><td style="padding:8px; border:1px solid #ccc; color:green;">Closest to ready</td><td style="padding:8px; border:1px solid #ccc;">Add 3 frontmatter fields, trim ~40 lines, create evals dir</td></tr>
+<tr><td style="padding:8px; border:1px solid #ccc;"><strong>drupal-coding-standards</strong></td><td style="padding:8px; border:1px solid #ccc;">~496</td><td style="padding:8px; border:1px solid #ccc; color:orange;">Needs splitting</td><td style="padding:8px; border:1px solid #ccc;">3x over line limit; split into 2-3 focused skills; remove broken a11y cross-refs</td></tr>
+<tr><td style="padding:8px; border:1px solid #ccc;"><strong>drupal-planner</strong></td><td style="padding:8px; border:1px solid #ccc;">~136</td><td style="padding:8px; border:1px solid #ccc; color:orange;">Needs cleanup</td><td style="padding:8px; border:1px solid #ccc;">Remove Zivtech attributions; generalize external skill refs; decide sub-planner bundle scope</td></tr>
+<tr><td style="padding:8px; border:1px solid #ccc;"><strong>drupal-critic</strong></td><td style="padding:8px; border:1px solid #ccc;">~126</td><td style="padding:8px; border:1px solid #ccc; color:orange;">Needs design decision</td><td style="padding:8px; border:1px solid #ccc;">External manifest model needs ai_best_practices maintainer approval before MR</td></tr>
+<tr><td style="padding:8px; border:1px solid #ccc;"><strong>drupal-planner.canvas</strong></td><td style="padding:8px; border:1px solid #ccc;">~53</td><td style="padding:8px; border:1px solid #ccc; color:red;">Name invalid</td><td style="padding:8px; border:1px solid #ccc;">Dot in name fails validator; rename to drupal-canvas-planner; verify external deps exist</td></tr>
+</tbody>
+</table>
+
+<p><strong>All 5 need:</strong> <code>status</code>/<code>drupal-version</code>/<code>last-reviewed</code> frontmatter, <code>evals/</code> directory with README + static-checks.json + evals.json, section restructure to "When to use" / "Guidance" / "What not to do" / "See also".</p>
+
+<p><strong>Recommended approach:</strong> Submit <code>drupal-security</code> first as a proof-of-concept MR to ai_best_practices. Use Comment 5 above to ask about format requirements and companion files before investing in the other four.</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- POSTING ORDER -->
+<!-- ============================================================ -->
+
+<div class="comment-block" style="background:#e8f4fd; border-color:#0678be;">
+<h2 style="color:#0678be;">Posting Order & Checklist</h2>
+<ol>
+  <li><strong>Today (April 18) — Tier 1:</strong>
+    <ul>
+      <li>[ ] Verify MR !114 CI is green on ai_context</li>
+      <li>[ ] Post Comment 1 (ai_context [#3582288])</li>
+      <li>[ ] Post Comment 2 (canvas [#3583357], set status: Postponed)</li>
+      <li>[ ] Post Comment 3 (canvas [#3545816] — confirm Fixed, no patch needed)</li>
+    </ul>
+  </li>
+  <li><strong>Today (April 18) — Tier 2:</strong>
+    <ul>
+      <li><s>Post Comment 5 (ai [#3585202] — SKIPPED, proposal rejected)</s></li>
+      <li>[ ] Post Comment 6 (ai [#3585053] — resume state confirmation)</li>
+    </ul>
+  </li>
+  <li><strong>Comment 4 (canvas [#3584087]) — 48h cool-off:</strong>
+    <ul>
+      <li>[ ] Human review pass 1: technical accuracy (April 19-20)</li>
+      <li>[ ] Human review pass 2: voice/tone after cool-off (April 20-21)</li>
+      <li>[ ] Post Comment 4 (no attachments)</li>
+    </ul>
+  </li>
+  <li><strong>ai_google_analytics issues — Tier 1:</strong>
+    <ul>
+      <li>[ ] Verify push access to ai_google_analytics d.o. repo</li>
+      <li>[ ] Create Issue 7 (architecture refactor), attach <code>mr1-architecture-di-config.patch</code></li>
+      <li>[ ] Push <code>architecture-di-config</code> branch, create MR against <code>1.0.x</code></li>
+      <li>[ ] Create Issue 8 (unit tests), attach <code>mr2-deterministic-benchmarks-tests.patch</code>, note dependency on Issue 7</li>
+      <li>[ ] Push <code>deterministic-benchmarks-tests</code> branch, create MR against <code>1.0.x</code></li>
+    </ul>
+  </li>
+  <li><strong>After posting all eight:</strong>
+    <ul>
+      <li>[ ] Check d.o. project creation eligibility: visit <a href="https://www.drupal.org/node/add/project-module">drupal.org/node/add/project-module</a></li>
+      <li>[ ] Check ai_google_analytics project permissions: visit <a href="https://www.drupal.org/project/ai_google_analytics">project page</a></li>
+    </ul>
+  </li>
+  <li><strong>Skills contribution (after Comment 5 answers land):</strong>
+    <ul>
+      <li>[ ] Adapt drupal-security to ai_best_practices format (add frontmatter, trim, create evals)</li>
+      <li>[ ] Submit drupal-security MR to ai_best_practices as proof-of-concept</li>
+      <li>[ ] Based on maintainer feedback, adapt remaining 4 skills</li>
+    </ul>
+  </li>
+</ol>
+</div>
+
+<p style="color:#666; font-size:0.85em; margin-top:40px; text-align:center;">
+  Generated from docs/plans/2026-04-18-drupal-org-response-strategy.md<br>
+  Patch verified against Canvas 1.2.0 (all hunks upstream).<br>
+  ai_google_analytics patches regenerated 2026-04-20 — PHPCS clean, 15/15 tests green.<br>
+  Skills readiness assessed against ai_best_practices CONTRIBUTING.md. All issue references use [#number] format per d.o. conventions.
+</p>
+
+</body>
+</html>
