@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>drupal.org Module Descriptions — Copy-Paste Ready (HTML)</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+  h1 { font-size: 1.5rem; border-bottom: 2px solid #2563eb; padding-bottom: 0.5rem; }
+  h2 { font-size: 1.25rem; margin-top: 2.5rem; background: #f1f5f9; padding: 0.5rem 0.75rem; border-radius: 4px; }
+  .copybox { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1rem 1.25rem; margin: 0.75rem 0 1.5rem; }
+  .copybox-label { font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; }
+  .meta { color: #64748b; font-size: 0.9rem; margin-bottom: 0.5rem; }
+  code { background: #f1f5f9; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 2rem 0; }
+</style>
+</head>
+<body>
+
+<h1>drupal.org Module Descriptions (HTML)</h1>
+<p>Each section has a short description and a full description in d.o.-compatible HTML. Copy the content inside the gray box.</p>
+
+<hr>
+
+<h2>1. AI Agents Canvas Direct Edit</h2>
+<div class="meta"><code>ai_agents_canvas_direct_edit</code> — Package: AI Tools — Deps: ai_agents, tool, canvas, canvas_ai</div>
+
+<div class="copybox-label">Short description</div>
+<div class="copybox">
+Deterministic Canvas component property editing without LLM. Resolves simple prop edits from SDC schemas in &lt;7ms at 0 tokens.
+</div>
+
+<div class="copybox-label">Full description (HTML for d.o.)</div>
+<div class="copybox"><pre style="white-space:pre-wrap;font-size:0.85rem;">
+&lt;p&gt;When users make simple changes to Canvas components ("set the color to blue," "change the heading to Welcome"), the correct result is deterministic. The prop name and value can be resolved directly from the SDC component schema without any AI reasoning.&lt;/p&gt;
+
+&lt;p&gt;This module does exactly that. It reads your theme's component YAML schemas, builds prop alias and enum value maps, and resolves edits through seven match tiers:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Exact and alias matches:&lt;/strong&gt; "set text_color to primary" or "set the color to blue"&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Bare value inference:&lt;/strong&gt; Just "blue" resolves to the correct prop when unambiguous&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Relative adjustments:&lt;/strong&gt; "bigger" or "smaller" navigates enum ordinals&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Boolean toggles:&lt;/strong&gt; "show the header" or "hide the footer"&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Reset patterns:&lt;/strong&gt; "reset the color" returns the prop to its default&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Compound edits:&lt;/strong&gt; "change the heading to Welcome and set the color to blue"&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Anything the matcher can't resolve with certainty gets a 422 response, routing the request to the existing AI agent chain. Zero false positives by design.&lt;/p&gt;
+
+&lt;h3&gt;Key features&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;8 Tool API plugins with automatic MCP, CLI, and AI agent discovery&lt;/li&gt;
+&lt;li&gt;HTTP bridge controller at the same endpoint the Canvas frontend already calls&lt;/li&gt;
+&lt;li&gt;Optional MCP server submodule (JSON-RPC 2.0) for external clients&lt;/li&gt;
+&lt;li&gt;Schema-driven: adapts automatically when theme components change&lt;/li&gt;
+&lt;li&gt;Config-driven verb and alias lists for customization without patching&lt;/li&gt;
+&lt;li&gt;Opt-in telemetry with PII-safe defaults (SHA-256 hashing, no raw text storage)&lt;/li&gt;
+&lt;li&gt;Works without AI providers configured (Canvas Lite mode: deterministic edits succeed, unmatched edits return 503 instead of routing to AI)&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3&gt;Measured results&lt;/h3&gt;
+
+&lt;p&gt;All measurements on a 15-component demo page:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Deterministic path: 0 tokens, &amp;lt;7ms&lt;/li&gt;
+&lt;li&gt;AI baseline: ~101K tokens, 16.4s&lt;/li&gt;
+&lt;li&gt;Hit rate: 60% on 20 mixed edits, zero false positives&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;59 kernel tests, 221 assertions. PHPCS clean (Drupal + DrupalPractice).&lt;/p&gt;
+
+&lt;p&gt;Requires: &lt;a href="https://www.drupal.org/project/ai_agents"&gt;AI Agents&lt;/a&gt;, &lt;a href="https://www.drupal.org/project/tool"&gt;Tool&lt;/a&gt;, &lt;a href="https://www.drupal.org/project/canvas"&gt;Canvas&lt;/a&gt;.&lt;/p&gt;
+</pre></div>
+
+<hr>
+
+<h2>2. Canvas AI SEO</h2>
+<div class="meta"><code>canvas_ai_seo</code> — Package: Drupal Canvas — Deps: canvas_ai, metatag</div>
+
+<div class="copybox-label">Short description</div>
+<div class="copybox">
+AI-generated Schema.org JSON-LD for Canvas pages.
+</div>
+
+<div class="copybox-label">Full description (HTML for d.o.)</div>
+<div class="copybox"><pre style="white-space:pre-wrap;font-size:0.85rem;">
+&lt;p&gt;Adds structured data generation to the Canvas AI page builder. When an AI agent builds or edits a Canvas page, this module generates Schema.org JSON-LD markup based on the page content and injects it into the page response.&lt;/p&gt;
+
+&lt;p&gt;The module provides two AiFunctionCall plugins:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;AddSchemaOrgJson:&lt;/strong&gt; Generates Schema.org JSON-LD from the page's component tree and attaches it to the canvas page entity. The SEO agent calls this after page content is finalized.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;GetLinkableComponents:&lt;/strong&gt; Scans the page layout for components that accept internal links (href, url props), returning a structured tree the agent can use for internal linking decisions.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;A &lt;code&gt;LayoutResponseSubscriber&lt;/code&gt; injects the generated JSON-LD into the page response at render time, and a &lt;code&gt;ConfigAction&lt;/code&gt; plugin (&lt;code&gt;AiContextAgentsUpdate&lt;/code&gt;) maps ai_context items to the SEO agent during recipe installation.&lt;/p&gt;
+
+&lt;p&gt;Integrates with the &lt;a href="https://www.drupal.org/project/metatag"&gt;Metatag&lt;/a&gt; module for meta tag management. The JSON-LD output is validated against Schema.org vocabularies and truncated to avoid blocking page publishing for long payloads.&lt;/p&gt;
+
+&lt;p&gt;Requires: &lt;a href="https://www.drupal.org/project/canvas"&gt;Canvas AI&lt;/a&gt;, &lt;a href="https://www.drupal.org/project/metatag"&gt;Metatag&lt;/a&gt;.&lt;/p&gt;
+</pre></div>
+
+<hr>
+
+<h2>3. AI Google Analytics</h2>
+<div class="meta"><code>ai_google_analytics</code> — Package: AI — Deps: ai, ai_agents, ai_context, canvas</div>
+
+<div class="copybox-label">Short description</div>
+<div class="copybox">
+Deterministic GA4 benchmark evaluation for Canvas pages with AI-powered failure summaries.
+</div>
+
+<div class="copybox-label">Full description (HTML for d.o.)</div>
+<div class="copybox"><pre style="white-space:pre-wrap;font-size:0.85rem;">
+&lt;p&gt;Monitors Google Analytics metrics for Canvas pages and flags pages that fall below performance benchmarks. The pass/fail decision is deterministic — PHP compares metrics against configurable thresholds. AI is used only to summarize failures for editorial review.&lt;/p&gt;
+
+&lt;h3&gt;How it works&lt;/h3&gt;
+
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Cron fetches GA4 data:&lt;/strong&gt; The &lt;code&gt;GoogleAnalyticsCronService&lt;/code&gt; polls the GA4 Data API (last 90 days) for each monitored Canvas page and stores engaged sessions, bounce rate, and key event rate on the page entity.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Presave evaluates benchmarks:&lt;/strong&gt; When a Canvas page is saved, the &lt;code&gt;BenchmarkEvaluator&lt;/code&gt; compares stored metrics against thresholds. No AI is involved in this step.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;AI summarizes failures:&lt;/strong&gt; If any benchmark fails, the module invokes the &lt;code&gt;analytics_monitoring_agent&lt;/code&gt; (shipped in config) to generate a human-readable summary. The admin receives an email notification.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h3&gt;What's included&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;GoogleAnalytics AiFunctionCall plugin:&lt;/strong&gt; Exposes GA data queries to any AI agent in the pipeline. Agents can request metrics for specific pages (last 90 days).&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;BenchmarkEvaluator service:&lt;/strong&gt; Deterministic threshold comparison for engaged sessions, bounce rate, and key event rate. Supports per-page overrides.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Cron service:&lt;/strong&gt; Polls GA4 Data API on cron and stores metrics on Canvas page entities.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Settings form:&lt;/strong&gt; Configure GA property ID, API credentials, global benchmark thresholds, and notification settings.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Review controller:&lt;/strong&gt; Displays pages that have failed benchmarks with AI-generated summaries and a link to open Canvas for remediation.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;7 base fields on Canvas pages:&lt;/strong&gt; Monitoring toggle, 3 metric fields (engaged sessions, bounce rate, key event rate), and 3 per-page benchmark override fields.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Shipped agent config:&lt;/strong&gt; A pre-configured &lt;code&gt;analytics_monitoring_agent&lt;/code&gt; with structured output schema for failure summaries.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Requires: &lt;a href="https://www.drupal.org/project/ai"&gt;AI&lt;/a&gt;, &lt;a href="https://www.drupal.org/project/ai_agents"&gt;AI Agents&lt;/a&gt;, &lt;a href="https://www.drupal.org/project/ai_context"&gt;AI Context&lt;/a&gt;, &lt;a href="https://www.drupal.org/project/canvas"&gt;Canvas&lt;/a&gt;. Also requires the &lt;code&gt;google/analytics-data&lt;/code&gt; Composer package. Google Analytics API credentials must be configured separately.&lt;/p&gt;
+</pre></div>
+
+
+</body>
+</html>

@@ -1,0 +1,22 @@
+ID,Type,Target Project,Issue/MR,Title,Source File,Status,Verified By,Notes
+1,Comment,ai_context,[#3582288],MR !114 Rebase Status,2026-04-18-drupal-org-comments.html #1,POSTED,ai_context fork has 2 pushed branches; MR !114 description updated on d.o.,
+2,Comment,canvas,[#3583357],Postponed on [#3549232],2026-04-18-drupal-org-comments.html #2,POSTED,d.o. comment #4 by alex ua Apr 19,
+3,Comment,canvas,[#3545816],All Changes Now Upstream in 1.2.0,2026-04-18-drupal-org-comments.html #3,POSTED,d.o. comment by alex ua Apr 19,
+4,Comment,canvas,[#3584087],Architecture Review Engagement,2026-04-18-drupal-org-comments.html #4,NOT POSTED,d.o. shows no alex ua comments,Needs human review — 48h cool-off long expired
+5,Comment,ai,[#3585202],Skills Mirroring,2026-04-18-drupal-org-comments.html #5,SKIP,,Issue closed — proposal rejected
+6,Comment,ai,[#3585053],Agent Runner Resume State,2026-04-18-drupal-org-comments.html #6,UNVERIFIED,GitLab redirect blocked scrape,Check manually
+7,Issue body,ai_google_analytics,[#3585742],Architecture Refactor (DI + Config),do-issue-architecture-di-config.html,POSTED,git: fork remote has 3585742-refactor-to-service pushed; d.o. MR !1 open,
+8,Issue body,ai_google_analytics,[#3585748],Unit Tests (stacked on MR !1),do-issue-unit-tests.html,POSTED,git: fork2 remote has 3585748-add-unit-tests pushed; d.o. MR !2 open,
+9,Comment + MR,ai_best_practices,[#3583217],Render Pipeline Skill MR,do-comments/3583217-render-pipeline-comment.md,POSTED,git: branch pushed to 3583217 remote; d.o. MR !16 confirmed Apr 20,Lens-reviewed 234 lines
+10,Comment (no MR),ai_best_practices,[#3583218],Entity/Field System Skill — Comment Only,do-comments/3583218-entities-fields-comment.md,COMMENT POSTED / MR NOT PUSHED,git: local branch exists but NO remote for 3583218; d.o. confirms no MR,Branch ready locally — needs git push + MR creation
+11,Comment (no MR),ai_best_practices,[#3583219],Configuration Skill — Comment Only,do-comments/3583219-configuration-comment.md,COMMENT POSTED / MR NOT PUSHED,git: local branch exists but NO remote for 3583219; d.o. confirms no MR,Branch ready locally — needs git push + MR creation
+12,Comment,ai_context,[#3582288],MR !114 Review Response (9 findings),2026-04-18-drupal-org-comments.html #12,POSTED,d.o. MR !114 description has full review response section,
+13,MR description,ai_context,MR !114,MR !114 Description Update,2026-04-18-drupal-org-comments.html #mr-update-114,POSTED,d.o. MR !114 description substantially updated,
+14,New issue,ai_best_practices,(new),ai_agents Event Semantics Skill,2026-04-18-drupal-org-comments.html #issue-13,NOT POSTED,[#3585894] returns 404,Issue not filed
+15,New issue,ai_best_practices,[#3585894],Progressive Context / Tiered Context Convention,ai-best-practices-progressive-context.html,NOT POSTED,[#3585894] returns 404,Issue not filed; also has MD + attachment files
+16,Project description,ai_agents_canvas_direct_edit,(project page),Module Description for d.o. Project Page,module-descriptions-for-do.html,POSTED,d.o. project page has full description with 7-tier matching + perf data,
+17,Project description,canvas_ai_seo,(project page),Module Description for d.o. Project Page,module-descriptions-for-do.html,POSTED,d.o. project page has full description,
+18,Project description,ai_google_analytics,(project page),Module Description for d.o. Project Page,module-descriptions-for-do.html,NOT POSTED,d.o. project page still has minimal one-liner,
+19,Explainer page,—,—,Experimental Workstream Explainer,experimental-workstream-explainer.html,NOT POSTED,,Needs destination decided
+20,Issue drafts,ai_best_practices,multiple,Expert Corrections + Hook Discovery + More,do-issue-drafts-ai-best-practices.html (ai-initiative-modules),UNVERIFIED,,Multiple issue drafts — check each target issue
+21,Issue/patch,canvas,multiple,Canvas AI Deterministic + Layout Scoping,patch-3-canvas-ai-issues.html (ai-initiative-modules),UNVERIFIED,,Only in ai-initiative-modules

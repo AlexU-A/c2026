@@ -74,6 +74,12 @@ function copyComment(id) {
   <li><a href="#comment-6">ai [#3585053] — Agent Runner Resume State</a> <span style="color:green">(ready now)</span></li>
   <li><a href="#issue-7">ai_google_analytics — Architecture Refactor (new issue + MR)</a> <span style="color:green">(ready now — PHPCS clean, 15 tests green)</span></li>
   <li><a href="#issue-8">ai_google_analytics — Unit Tests (new issue + MR)</a> <span style="color:green">(ready now — stacked on #7)</span></li>
+  <li><a href="#comment-9">ai_best_practices [#3583217] — Render Pipeline Skill MR</a> <span style="color:green">(ready — push after fork creation)</span></li>
+  <li><a href="#comment-10">ai_best_practices [#3583218] — Entity/Field System Skill MR</a> <span style="color:green">(ready — push after fork creation)</span></li>
+  <li><a href="#comment-11">ai_best_practices [#3583219] — Configuration Skill MR</a> <span style="color:green">(ready — push after fork creation)</span></li>
+  <li><a href="#comment-12">ai_context [#3582288] — MR !114 Review Response</a> <span style="color:green">(ready — push after MR description updated)</span></li>
+  <li><a href="#mr-update-114">ai_context MR !114 — Description Update</a> <span style="color:green">(ready — paste into MR description on d.o.)</span></li>
+  <li><a href="#issue-13">ai_best_practices — New Issue: ai_agents Event Semantics Skill</a> <span style="color:green">(ready — file as new issue)</span></li>
 </ol>
 </div>
 
@@ -206,13 +212,13 @@ Findings:
 
 1. Context re-injection is the largest single cost. On a multi-loop agent (e.g. page_builder running 3 loops), the full ai_context block re-appends on every BuildSystemPromptEvent dispatch. On a 15-component page, that's roughly 52% of total tokens spent on content the model has already seen. [#3582288] on ai_context adds a loop_aware flag that skips re-injection on loop > 0. MR !114 is in review.
 
-2. Most common edits don't need the LLM at all. Categorizing 6 weeks of edits from the demo site, approximately 60% resolve to deterministic prop updates — changing a heading, swapping a color token, toggling visibility. These are pattern-matchable without an LLM call. A working prototype with 52 kernel tests handles these deterministically, falling back to the AI pipeline for the remaining 40% (layout changes, content generation, multi-component operations).
+2. Most common edits don't need the LLM at all. Categorizing 6 weeks of edits from the demo site, approximately 60% resolve to deterministic prop updates — changing a heading, swapping a color token, toggling visibility. These are pattern-matchable without an LLM call, falling back to the AI pipeline for the remaining 40% (layout changes, content generation, multi-component operations).
 
-3. The orchestrator context problem scales with page size. On a 15-component page, a single heading edit sends roughly 111K tokens through the full pipeline. The orchestrator passes the user's input to the sub-agent, which re-fetches page state and context independently. Scoping context to the affected region (rather than full layout) reduced the payload by about 79% in testing.
+3. The orchestrator context problem scales with page size. On a 15-component page, a single heading edit sends roughly 111K tokens through the full pipeline. The orchestrator passes the user's input to the sub-agent, which re-fetches page state and context independently. Based on our measurements, scoping context to the affected region (rather than full layout) could reduce the payload by approximately 79%.
 
-These observations align with both the proposed directions here and @d34dman's points about slimming context aggressively and making actions atomic. The "predictable identifiers" pattern d34dman describes maps well to the component instance IDs that Canvas already assigns — those are stable enough to reference across planning and execution steps without round-trips.
+These observations align with both the proposed directions here and d34dman's points about slimming context aggressively and making actions atomic. The "predictable identifiers" pattern d34dman describes maps well to the component instance IDs that Canvas already assigns — those appear stable enough in our testing to reference across planning and execution steps without round-trips.
 
-Profiling methodology: token counts via provider API response metadata, latency via PHP microtime around the AgentRunner call, N=5 runs per edit type with median reported. Happy to share the benchmark scripts or detailed per-operation breakdowns if that would help the discussion.
+Profiling methodology: token counts via provider API response metadata, latency via PHP microtime around the AgentRunner call, N=5 runs per edit type with median reported. Happy to share the benchmark scripts or detailed per-operation breakdowns if that would help the discussion. We also prototyped a deterministic handler for the pattern-matchable edits and can share the approach if it would be useful.
 
 Disclosure: AI tools assisted development of the prototype; architecture and testing were human-directed.</div>
 </div>
@@ -394,6 +400,133 @@ MR !1515 looks like the right approach. Happy to test against a local setup if t
 </div>
 
 <!-- ============================================================ -->
+<!-- COMMENT 9: ai_best_practices #3583217 — Render Pipeline MR -->
+<!-- ============================================================ -->
+
+<div id="comment-9" class="comment-block priority-med">
+<button class="copy-btn" onclick="copyComment('text-3583217-mr')">Copy HTML</button>
+<h2>9. ai_best_practices [#3583217] — Render Pipeline Skill MR</h2>
+
+<div class="meta">
+  <strong>Issue:</strong> <a href="https://www.drupal.org/project/ai_best_practices/issues/3583217">Skill: working with the render pipeline</a><br>
+  <strong>Set status to:</strong> Needs review<br>
+  <strong>Attachments:</strong> None (code is in the MR)<br>
+  <strong>Risk:</strong> Low — new skill file, no changes to existing code<br>
+  <strong>Pre-check:</strong> Create issue fork, push branch, verify MR link works
+</div>
+
+<div class="success">Skill and eval suite complete. Static checks: 14/14 pass. Ready to push once issue fork is created.</div>
+
+<div id="text-3583217-mr" class="issue-text">
+<p>MR attached with the skill file and eval suite.</p>
+
+<p>Following the naming convention from [#3585395], this is named <code>drupal-render-pipeline</code> (the issue title uses the older gerund pattern).</p>
+
+<p>The skill covers:</p>
+<ul>
+  <li>Return render arrays, not HTML strings</li>
+  <li>Cacheability metadata (tags, contexts, max-age with minimum-wins bubbling)</li>
+  <li>CacheableMetadata value object for safe metadata merging</li>
+  <li>Metadata bubbling and explicit-attachment cases (access results, config overrides, translations)</li>
+  <li>Lazy builders with scalar-only arguments</li>
+  <li>BigPipe streaming and placeholder system</li>
+  <li>Cache tag invalidation (two-phase: checksum update is immediate, eviction on next read)</li>
+  <li>Render element types (#theme, #type, #markup, #plain_text, inline_template)</li>
+  <li>Rendering outside the request pipeline (renderInIsolation, renderPlain)</li>
+  <li>#access property with AccessResult cacheability</li>
+</ul>
+
+<p>235 lines, which exceeds the ~150 guideline. The additional coverage (CacheableMetadata, BigPipe, #access cacheability, renderInIsolation, explicit-attachment cases) was added after review to close gaps in cache-correctness and API surface coverage. All sections are tightly coupled to the render pipeline topic — splitting would create fragments that are always loaded together. Happy to discuss if the maintainers prefer a different structure.</p>
+
+<p>Eval suite: 5 behavioral cases (controller with cache metadata, block with cache tags, lazy builder for personalized content, CacheableJsonResponse for JSON endpoints, #plain_text for user input) + 14 static checks. All pass.</p>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMMENT 10: ai_best_practices #3583218 — Entity Fields MR -->
+<!-- ============================================================ -->
+
+<div id="comment-10" class="comment-block priority-med">
+<button class="copy-btn" onclick="copyComment('text-3583218-mr')">Copy HTML</button>
+<h2>10. ai_best_practices [#3583218] — Entity/Field System Skill MR</h2>
+
+<div class="meta">
+  <strong>Issue:</strong> <a href="https://www.drupal.org/project/ai_best_practices/issues/3583218">Skill: working with the entity and field system</a><br>
+  <strong>Set status to:</strong> Needs review<br>
+  <strong>Attachments:</strong> None (code is in the MR)<br>
+  <strong>Risk:</strong> Low — new skill file, no changes to existing code<br>
+  <strong>Pre-check:</strong> Create issue fork, push branch, verify MR link works
+</div>
+
+<div class="success">Skill and eval suite complete. Static checks: 13/13 pass. Ready to push once issue fork is created.</div>
+
+<div id="text-3583218-mr" class="issue-text">
+<p>MR attached with the skill file and eval suite.</p>
+
+<p>Following the naming convention from [#3585395], this is named <code>drupal-entity-fields</code> (the issue title uses the older gerund pattern).</p>
+
+<p>The skill covers:</p>
+<ul>
+  <li>Entity types vs. bundles (the single most common architectural mistake agents make)</li>
+  <li>Base fields vs. configurable fields</li>
+  <li>Entity queries with mandatory accessCheck() — both TRUE and FALSE with documentation requirements</li>
+  <li>Database queries vs. entity queries (when raw SQL is legitimate)</li>
+  <li>Storage handler patterns with EntityTypeManagerInterface injection</li>
+  <li>Field value access (-&gt;value, -&gt;entity, -&gt;target_id and when to use each)</li>
+  <li>Revisions (default vs. non-default, workflow-enabled entities)</li>
+  <li>Translations (getTranslation, multilingual field access)</li>
+  <li>Entity validation ($entity-&gt;validate() before save)</li>
+  <li>"Agents frequently generate X, do Y instead" framing throughout</li>
+</ul>
+
+<p>246 lines, which exceeds the ~150 guideline. The additional coverage (revisions, translations, entity validation) was added after review. These are tightly coupled to the entity/field topic and inseparable from the core guidance — agents that ignore revisions or translations produce code that works in development and breaks on multilingual or editorial-workflow sites.</p>
+
+<p>Eval suite: 6 behavioral cases (bundle vs. entity type decision, user-facing query with accessCheck(TRUE), system query with accessCheck(FALSE), entity reference field access, field condition query, entity creation with validation) + 13 static checks. All pass.</p>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMMENT 11: ai_best_practices #3583219 — Configuration MR -->
+<!-- ============================================================ -->
+
+<div id="comment-11" class="comment-block priority-med">
+<button class="copy-btn" onclick="copyComment('text-3583219-mr')">Copy HTML</button>
+<h2>11. ai_best_practices [#3583219] — Configuration Skill MR</h2>
+
+<div class="meta">
+  <strong>Issue:</strong> <a href="https://www.drupal.org/project/ai_best_practices/issues/3583219">Skill: working with Drupal configuration</a><br>
+  <strong>Set status to:</strong> Needs review<br>
+  <strong>Attachments:</strong> None (code is in the MR)<br>
+  <strong>Risk:</strong> Low — new skill file, no changes to existing code<br>
+  <strong>Pre-check:</strong> Create issue fork, push branch, verify MR link works
+</div>
+
+<div class="success">Skill and eval suite complete. Static checks: 13/13 pass. Ready to push once issue fork is created.</div>
+
+<div id="text-3583219-mr" class="issue-text">
+<p>MR attached with the skill file and eval suite.</p>
+
+<p>Following the naming convention from [#3585395], this is named <code>drupal-configuration</code> (the issue title uses the older gerund pattern).</p>
+
+<p>The skill covers:</p>
+<ul>
+  <li>The three storage mechanisms (config vs. state vs. settings) with decision tree</li>
+  <li>Simple config vs. config entities (refined: entities needed even for single-instance when dependency tracking is required)</li>
+  <li>Config dependencies (highest priority — missing dependencies break import)</li>
+  <li>Third-party settings (setThirdPartySetting API for cross-module config)</li>
+  <li>Config schema with strict validation notes (incremental rollout through 10.3+ and 11.x)</li>
+  <li>The export workflow (make changes, drush cex, review, commit)</li>
+  <li>Config overrides (layered system, get() vs. getEditable())</li>
+  <li>Config actions and recipes (Drupal 10.3+)</li>
+</ul>
+
+<p>256 lines, which exceeds the ~150 guideline. The additional coverage (config dependencies, third-party settings, config actions/recipes) was added after review. Config dependencies in particular was flagged as highest priority — missing dependencies is the #1 cause of config import failures, and agents consistently omit them.</p>
+
+<p>Eval suite: 6 behavioral cases (API key in settings.php, settings form with schema, State API for timestamps, config overrides for env-specific values, config entity vs. simple config decision, third-party settings for cross-module config) + 13 static checks. All pass.</p>
+</div>
+</div>
+
+<!-- ============================================================ -->
 <!-- SKILLS READINESS -->
 <!-- ============================================================ -->
 
@@ -462,7 +595,21 @@ MR !1515 looks like the right approach. Happy to test against a local setup if t
       <li>[ ] Check ai_google_analytics project permissions: visit <a href="https://www.drupal.org/project/ai_google_analytics">project page</a></li>
     </ul>
   </li>
-  <li><strong>Skills contribution (after Comment 5 answers land):</strong>
+  <li><strong>ai_best_practices skill MRs — Tier 1:</strong>
+    <ul>
+      <li>[ ] Create issue fork on <a href="https://www.drupal.org/project/ai_best_practices/issues/3583217">[#3583217]</a> (click "Create merge request")</li>
+      <li>[ ] Create issue fork on <a href="https://www.drupal.org/project/ai_best_practices/issues/3583218">[#3583218]</a></li>
+      <li>[ ] Create issue fork on <a href="https://www.drupal.org/project/ai_best_practices/issues/3583219">[#3583219]</a></li>
+      <li>[ ] Push <code>3583217-drupal-render-pipeline</code> branch to fork, verify MR</li>
+      <li>[ ] Push <code>3583218-drupal-entity-fields</code> branch to fork, verify MR</li>
+      <li>[ ] Push <code>3583219-drupal-configuration</code> branch to fork, verify MR</li>
+      <li>[ ] Post Comment 9 on [#3583217] with MR link</li>
+      <li>[ ] Post Comment 10 on [#3583218] with MR link</li>
+      <li>[ ] Post Comment 11 on [#3583219] with MR link</li>
+      <li>[ ] Set all three issues to "Needs review"</li>
+    </ul>
+  </li>
+  <li><strong>Skills contribution — future (after Comment 5 answers land):</strong>
     <ul>
       <li>[ ] Adapt drupal-security to ai_best_practices format (add frontmatter, trim, create evals)</li>
       <li>[ ] Submit drupal-security MR to ai_best_practices as proof-of-concept</li>
@@ -472,11 +619,181 @@ MR !1515 looks like the right approach. Happy to test against a local setup if t
 </ol>
 </div>
 
+<!-- ============================================================ -->
+<!-- COMMENT 12: ai_context #3582288 — Review Response -->
+<!-- ============================================================ -->
+
+<div id="comment-12" class="comment-block priority-high">
+<button class="copy-btn" onclick="copyComment('text-3582288-response')">Copy HTML</button>
+<h2>12. ai_context [#3582288] — MR !114 Review Response</h2>
+
+<div class="meta">
+  <strong>Issue:</strong> <a href="https://www.drupal.org/project/ai_context/issues/3582288">SystemPromptSubscriber re-injects full context on every agent loop iteration</a><br>
+  <strong>Set status to:</strong> Needs review<br>
+  <strong>Attachments:</strong> <code>mr_114_loop_aware_review_response.md</code> (upload from docs/filing/)<br>
+  <strong>Risk:</strong> Low — all findings addressed, tests green<br>
+  <strong>Pre-check:</strong> MR description must be updated first (see entry 13)
+</div>
+
+<div class="success">Post after updating the MR description. Short comment — details are in the MR.</div>
+
+<div id="text-3582288-response" class="issue-text">
+<p>Thanks for the thorough review. Findings #1 (LLM state semantics) and #2 (architectural single-responsibility) were genuine catches that CI and the RTBC review didn't surface.</p>
+
+<p>All 9 findings are addressed in the updated MR. The highlights:</p>
+
+<ul>
+  <li>Code comment and form description now accurately describe the trade-off: system prompts are rebuilt from scratch each loop, context influence persists only through conversation history, this is a token optimization not a lossless skip. Form description advises which context types are safer vs. riskier for this optimization.</li>
+  <li>Subscriber no longer reads <code>ai_context.agents</code> config directly. <code>AiContextRequestFactory</code> now exposes <code>findAgentConfig()</code> publicly and a new <code>isLoopAware()</code> method. The subscriber calls <code>isLoopAware()</code> — it has no knowledge of the config key name.</li>
+  <li><code>loop_aware</code> flag cached in <code>onAgentStarted()</code> — no config re-read on the hot path.</li>
+  <li>Test trimmed from 20 modules to 10, <code>@runTestsInSeparateProcesses</code> removed. 7/7 tests green with the reduced set.</li>
+  <li>Schema label updated, usage tracking skip documented.</li>
+</ul>
+
+<p>Full per-finding breakdown is in the MR description.</p>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MR UPDATE: ai_context MR !114 — Description Update -->
+<!-- ============================================================ -->
+
+<div id="mr-update-114" class="comment-block priority-high">
+<button class="copy-btn" onclick="copyComment('text-mr-114-update')">Copy Markdown</button>
+<h2>13. ai_context MR !114 — Description Update</h2>
+
+<div class="meta">
+  <strong>MR:</strong> <a href="https://git.drupalcode.org/project/ai_context/-/merge_requests/114">!114</a><br>
+  <strong>Action:</strong> Replace MR description with this Markdown text<br>
+  <strong>Risk:</strong> None — informational only
+</div>
+
+<div class="warning">GitLab uses Markdown. Copy and paste into the MR description field, replacing the existing description.</div>
+
+<div id="text-mr-114-update" class="comment-text">## Summary
+
+Adds a per-agent `loop_aware` boolean to ai_context agent config. When enabled, context is injected only on loop 0. On subsequent loops, the system prompt is rebuilt without context items. The LLM retains context influence only through prior conversation messages (user/assistant history). This is a token optimization trade-off — not a lossless skip.
+
+Measured 52% token reduction on a 3-loop Canvas page build with ~4K tokens of always-include context.
+
+## Changes
+
+- `config/schema/ai_context.schema.yml` — Adds `loop_aware: boolean` to per-agent mapping, label: "Loop-aware context injection"
+- `src/Service/AiContextRequestFactory.php` — `findAgentConfig()` made public (was private). New `isLoopAware()` method encapsulates the config check. Factory is the canonical and only source for agent config lookups.
+- `src/EventSubscriber/AiContextSystemPromptSubscriber.php` — Stores loop count from `AgentStartedExecutionEvent`, caches `loop_aware` flag via `isLoopAware()` in `onAgentStarted()`, skips injection when flag is set and loop > 0. Subscriber has no direct knowledge of agent config keys. Usage tracking is intentionally skipped on loops where no context is injected (documented in code comment).
+- `src/Form/AiContextAgentForm.php` — Adds checkbox UI. Description accurately states the trade-off: "Safer for stable directives like tone or writing style; riskier for context containing factual data or output-format constraints the LLM must reference on every loop."
+- `tests/src/Kernel/SystemPromptSubscriberLoopAwareTest.php` — 7 data-provider cases + 1 explicit test. Minimal module set (10 modules). No `@runTestsInSeparateProcesses`.
+
+## Review Response (April 2026)
+
+All 9 findings from the [April 20 review](https://www.drupal.org/files/issues/2026-04-20/mr_114_loop_aware_review.md) are addressed:
+
+### Finding #1 — LLM state semantics (critical)
+
+The original comment and form description incorrectly implied the LLM "already has" the context. In reality, `BuildSystemPromptEvent` fires fresh each loop — the system prompt is replaced, not accumulated. Context influence persists only through prior assistant/user messages in conversation history. Fixed: code comment and form description now accurately describe this as a token optimization trade-off, with guidance on which context types are safer (stable directives) vs. riskier (factual data, format constraints).
+
+### Finding #2 — Architectural single-responsibility (critical)
+
+The subscriber was duplicating `AiContextRequestFactory`'s config lookup. Fixed: `findAgentConfig()` is now public. New `isLoopAware()` method encapsulates the check. The subscriber calls `$this->requestFactory->isLoopAware($agentId)` — it no longer reads `ai_context.agents` config or knows the config key name. Grep confirms only two services read this config: the factory (canonical read) and the form (write on save).
+
+### Finding #3 — Config caching (moderate)
+
+Fixed: `loop_aware` flag cached in `$this->loopAwareFlags` during `onAgentStarted()`. The check in `onPreSystemPrompt()` is a property lookup with no config re-read.
+
+### Finding #4 — Usage tracking skip (moderate)
+
+Added documentation in the code comment: "Usage tracking is also intentionally skipped since no context was injected."
+
+### Finding #5 — @runTestsInSeparateProcesses (moderate)
+
+Removed. No global state contamination in this test.
+
+### Finding #6 — Test module bloat (moderate)
+
+Trimmed from 20 to 10 modules. Removed: datetime, options, node, taxonomy, views, content_moderation, workflows, modeler_api, scheduler, scheduler_content_moderation_integration. All 7 tests pass with the reduced set.
+
+### Finding #7 — Missing period (minor)
+
+Moot — the comment was rewritten entirely per finding #1.
+
+### Finding #8 — Schema label (minor)
+
+Changed from "Skip context injection on agent loops > 0" to "Loop-aware context injection".
+
+### Finding #9 — Form placement (minor)
+
+Noted for future work. If more optimization flags land, they will be grouped under a details element.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ISSUE 13: ai_best_practices — ai_agents Event Semantics Skill -->
+<!-- ============================================================ -->
+
+<div id="issue-13" class="comment-block priority-med">
+<button class="copy-btn" onclick="copyComment('text-ai-agents-skill')">Copy HTML</button>
+<h2>14. ai_best_practices — New Issue: ai_agents Event Semantics Skill</h2>
+
+<div class="meta">
+  <strong>Project:</strong> <a href="https://www.drupal.org/project/ai_best_practices">AI Best Practices for Drupal</a><br>
+  <strong>Action:</strong> File as new issue<br>
+  <strong>Component:</strong> Guidelines<br>
+  <strong>Category:</strong> Plan<br>
+  <strong>Risk:</strong> None — proposal only
+</div>
+
+<div class="success">File as a new issue. Same shape as [#3583217], [#3583218], [#3583219].</div>
+
+<div id="text-ai-agents-skill" class="issue-text">
+<h3>Title: Skill: agent execution loop semantics (system prompt lifecycle and loop state)</h3>
+
+<h3>Problem/Motivation</h3>
+
+<p>The agent execution loop in <code>ai_agents</code> has semantics that differ from common assumptions about stateless HTTP request handling. The system prompt is rebuilt from scratch each loop iteration, but developers frequently write code that assumes it accumulates. These errors produce code that passes CI and functional testing but behaves incorrectly under multi-loop execution.</p>
+
+<p>Patterns observed while working on [#3582288]:</p>
+
+<ul>
+  <li><strong>Assuming system prompts accumulate across loops.</strong> <code>BuildSystemPromptEvent</code> fires fresh each loop iteration. The system prompt is rebuilt from scratch and passed to the LLM as a separate parameter — it is replaced, not appended to. Code that skips injecting content "because the LLM already has it" is actually removing that content entirely from the LLM's system context.</li>
+  <li><strong>Confusing system prompt presence with conversation history persistence.</strong> When content is in the system prompt on loop 0 but absent on loop 1, the LLM retains influence only through its own prior responses in conversation history. This is a fundamentally different (and weaker) form of context retention. Developers treat these as equivalent when they are not.</li>
+  <li><strong>Not understanding the event dispatch sequence.</strong> <code>AgentStartedExecutionEvent</code> fires before <code>BuildSystemPromptEvent</code> each loop. The started event provides the loop count and runner ID. Subscribers that need to vary behavior per-loop must capture state from the started event and apply it in the prompt event — they cannot query loop state directly from the prompt event.</li>
+  <li><strong>Duplicating config lookups that a service factory already owns.</strong> When subscribers read agent context config directly instead of using the factory's public API, they risk divergence when the config structure changes.</li>
+</ul>
+
+<h3>Proposed Resolution</h3>
+
+<p>Create a <code>drupal-agent-loop-semantics/SKILL.md</code> skill covering:</p>
+
+<ol>
+  <li><strong>The agent execution loop.</strong> <code>AgentStartedExecutionEvent</code> → <code>BuildSystemPromptEvent</code> → LLM call → tool execution → repeat. Each iteration rebuilds the system prompt from scratch.</li>
+  <li><strong>System prompt vs. conversation history.</strong> The system prompt is a separate API parameter, replaced each call. Conversation history (user/assistant messages) accumulates. Content in the system prompt on loop 0 is <em>not</em> in the system prompt on loop 1 unless explicitly re-injected.</li>
+  <li><strong>Loop-aware optimization patterns.</strong> When and how to skip system prompt content on subsequent loops. The trade-off: token savings vs. reduced context fidelity. Which types of content are safe to skip (stable directives, tone guidelines) vs. risky (factual data, format constraints, behavior overrides).</li>
+  <li><strong>Service boundaries for agent config.</strong> Use the factory's public API for agent config lookups rather than reading config keys directly.</li>
+</ol>
+
+<h3>Why this skill is needed</h3>
+
+<p>The existing skills ([#3583217] render pipeline, [#3583218] entities, [#3583219] config) cover Drupal core subsystems. This skill covers the interaction between the agent execution model and subscriber code — specifically, the parts where the system prompt lifecycle differs from what developers expect. These patterns are observable from the public event API but not documented in a way that prevents the common mistakes above.</p>
+
+<p>This is based on patterns observed as a consumer of these APIs. We would welcome review from the <code>ai_agents</code> maintainers to verify accuracy before the skill is drafted.</p>
+
+<h3>Remaining Tasks</h3>
+
+<ol>
+  <li>Confirm scope and accuracy with ai_agents maintainers</li>
+  <li>Draft the skill file with the execution loop diagram and worked examples</li>
+  <li>Write eval cases: developer skips system prompt content on loop &gt; 0 (must document what's lost), developer reads agent config (must use factory API)</li>
+  <li>Add entry to AGENTS.md</li>
+</ol>
+</div>
+</div>
+
 <p style="color:#666; font-size:0.85em; margin-top:40px; text-align:center;">
   Generated from docs/plans/2026-04-18-drupal-org-response-strategy.md<br>
   Patch verified against Canvas 1.2.0 (all hunks upstream).<br>
   ai_google_analytics patches regenerated 2026-04-20 — PHPCS clean, 15/15 tests green.<br>
-  Skills readiness assessed against ai_best_practices CONTRIBUTING.md. All issue references use [#number] format per d.o. conventions.
+  Skills readiness assessed against ai_best_practices CONTRIBUTING.md. All issue references use [#number] format per d.o. conventions.<br>
+  Comments 9-11 added 2026-04-20 — 3 skill MRs with eval suites, all static checks passing (14/14, 13/13, 13/13).<br>
+  Comments 12-14 added 2026-04-21 — MR !114 review response (all 9 findings addressed, 7/7 tests green, PHPCS clean). New ai_best_practices issue for ai_agents event semantics skill.
 </p>
 
 </body>
